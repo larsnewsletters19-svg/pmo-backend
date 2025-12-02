@@ -149,11 +149,14 @@ def generate():
     """Handle generation requests and return both text and .docx file"""
     try:
         data = request.json
-        api_key = data.get('api_key')
+        api_key = data.get('api_key') or os.environ.get('CLAUDE_API_KEY')
         prompt = data.get('prompt')
         
-        if not api_key or not prompt:
-            return jsonify({'error': 'Missing api_key or prompt'}), 400
+        if not api_key:
+           return jsonify({'error': 'Missing API key'}), 400
+
+        if not prompt:
+           return jsonify({'error': 'Missing prompt'}), 400
         
         # Call Claude API
         response = requests.post(
