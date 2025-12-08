@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>AI PMO Generator v7.0-beta</title>
+    
+    <!-- Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
+        * {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .glass {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        
+        .glass-dark {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .btn-gradient {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-gradient:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+        
+        .card {
+            transition: all 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        textarea:focus, input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .tab-active {
+            background: white;
+            color: #667eea;
+            border-bottom: 4px solid #667eea;
+            position: relative;
+            font-weight: 600;
+        }
+        
+        .tab-inactive {
+            background: transparent;
+            color: #9ca3af;
+            border-bottom: 4px solid transparent;
+            font-weight: 500;
+        }
+        
+        .tab-inactive:hover {
+            background: rgba(102, 126, 234, 0.05);
+            color: #667eea;
+        }
+        
+        .tab-container {
+            border-bottom: 2px solid #e5e7eb;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .tab-container::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .tab-container {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        .action-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transform: scale(1);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+        
+        .action-button:hover:not(:disabled) {
+            transform: scale(1.02);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.4);
+        }
+        
+        .action-button:disabled {
+            background: #d1d5db;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+        
+        .quick-insert-btn {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 15px;
+            transition: all 0.2s ease;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        
+        .quick-insert-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+        }
+        
+        .quick-insert-section {
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+            border: 2px solid #86efac;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        
+        .document-preview {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.6;
+            color: #000000;
+        }
+        
+        .document-preview h1 {
+            font-size: 24px;
+            color: #1A4D80;
+            font-weight: 600;
+            margin: 0 0 20px 0;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #1A4D80;
+        }
+        
+        .document-preview h2 {
+            font-size: 18px;
+            color: #416D94;
+            font-weight: 600;
+            margin: 20px 0 12px 0;
+        }
+        
+        .document-preview h3 {
+            font-size: 14px;
+            color: #444444;
+            font-weight: 600;
+            margin: 15px 0 10px 0;
+        }
+        
+        .document-preview p {
+            margin: 8px 0;
+        }
+        
+        .document-preview ul {
+            list-style-type: disc;
+            padding-left: 25px;
+            margin: 10px 0;
+        }
+        
+        .document-preview li {
+            margin: 5px 0;
+        }
+        
+        .document-preview strong {
+            font-weight: 600;
+            color: #1A4D80;
+        }
+        
+        .document-preview table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 15px 0;
+        }
+        
+        .document-preview th {
+            background: #1A4D80;
+            color: white;
+            padding: 10px;
+            text-align: left;
+            font-weight: 600;
+        }
+        
+        .document-preview td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+        
+        .document-preview tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                font-size: 16px;
+            }
+            
+            button {
+                min-height: 44px;
+                font-size: 15px;
+                padding: 10px 16px;
+                touch-action: manipulation;
+            }
+            
+            .button-group button {
+                width: 100%;
+                margin-bottom: 8px;
+            }
+            
+            input:not([type="checkbox"]):not([type="radio"]), 
+            textarea, 
+            select {
+                font-size: 16px !important;
+                padding: 12px !important;
+                min-height: 48px;
+            }
+            
+            textarea {
+                min-height: 200px;
+            }
+            
+            .px-6 {
+                padding-left: 0.75rem;
+                padding-right: 0.75rem;
+            }
+            
+            .py-12 {
+                padding-top: 1.5rem;
+                padding-bottom: 1.5rem;
+            }
+            
+            .p-8 {
+                padding: 1rem;
+            }
+            
+            .flex-row {
+                flex-direction: column;
+            }
+            
+            .document-preview table {
+                font-size: 12px;
+            }
+            
+            .document-preview th,
+            .document-preview td {
+                padding: 4px;
+            }
+            
+            .glass-dark {
+                margin-left: -0.5rem;
+                margin-right: -0.5rem;
+            }
+            
+            .max-w-7xl, .max-w-6xl {
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+            
+            h1 {
+                font-size: 1.25rem !important;
+                line-height: 1.3;
+            }
+            
+            .flex.items-center.justify-between {
+                gap: 0.5rem;
+            }
+            
+            .quick-insert-btn {
+                padding: 14px 18px;
+                font-size: 15px;
+                min-height: 56px;
+            }
+            
+            .quick-insert-section {
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // ========================================
+        // SUPABASE CONFIGURATION
+        // ========================================
+        // TODO: REPLACE WITH YOUR SUPABASE CREDENTIALS
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL_HERE';
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY_HERE';
+        
+        // Initialize Supabase client
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // ========================================
+        // ANONYMIZATION UTILITIES
+        // ========================================
+        
+        // Detect potential person names (simple heuristic)
+        const detectPersonNames = (text) => {
+            // Pattern: Capitalized words (2-3 words) that might be names
+            const namePattern = /\b([A-ZÅÄÖ][a-zåäö]+(?:\s+[A-ZÅÄÖ][a-zåäö]+){1,2})\b/g;
+            const matches = text.match(namePattern) || [];
+            return [...new Set(matches)].filter(name => {
+                // Filter out common non-names
+                const commonWords = ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lördag', 'Söndag',
+                                     'Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni', 'Juli', 'Augusti',
+                                     'September', 'Oktober', 'November', 'December'];
+                return !commonWords.includes(name);
+            });
+        };
+
+        // Detect email addresses
+        const detectEmails = (text) => {
+            const emailPattern = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g;
+            return [...new Set(text.match(emailPattern) || [])];
+        };
+
+        // Detect phone numbers (Swedish format)
+        const detectPhones = (text) => {
+            const phonePattern = /\b(\+46|0)[\s-]?[1-9]\d{1,2}[\s-]?\d{2,3}[\s-]?\d{2,3}[\s-]?\d{2}\b/g;
+            return [...new Set(text.match(phonePattern) || [])];
+        };
+
+        // Detect company names (heuristic - words ending in AB, Ltd, Inc, etc.)
+        const detectCompanies = (text) => {
+            const companyPattern = /\b([A-ZÅÄÖ][a-zåäöA-ZÅÄÖ\s&]+(?:AB|Ltd|Inc|Corp|GmbH|AS|Oy))\b/g;
+            return [...new Set(text.match(companyPattern) || [])];
+        };
+
+        // Anonymize text using mapping
+        const anonymizeText = (text, mapping) => {
+            let result = text;
+            for (const [original, anonymized] of Object.entries(mapping)) {
+                const regex = new RegExp(original.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+                result = result.replace(regex, `[${anonymized}]`);
+            }
+            return result;
+        };
+
+        // De-anonymize text using mapping
+        const deanonymizeText = (text, mapping) => {
+            let result = text;
+            for (const [original, anonymized] of Object.entries(mapping)) {
+                const regex = new RegExp(`\\[${anonymized}\\]`, 'g');
+                result = result.replace(regex, original);
+            }
+            return result;
+        };
+
+        // Auto-detect and create anonymization mapping
+        const createAnonymizationMapping = (text, existingMapping = {}) => {
+            const mapping = { ...existingMapping };
+            let counter = {
+                person: Object.values(existingMapping).filter(v => v.startsWith('PERSON_')).length,
+                email: Object.values(existingMapping).filter(v => v.startsWith('EMAIL_')).length,
+                phone: Object.values(existingMapping).filter(v => v.startsWith('PHONE_')).length,
+                company: Object.values(existingMapping).filter(v => v.startsWith('COMPANY_')).length
+            };
+
+            // Detect and map person names
+            const names = detectPersonNames(text);
+            names.forEach(name => {
+                if (!mapping[name]) {
+                    mapping[name] = `PERSON_${++counter.person}`;
+                }
+            });
+
+            // Detect and map emails
+            const emails = detectEmails(text);
+            emails.forEach(email => {
+                if (!mapping[email]) {
+                    mapping[email] = `EMAIL_${++counter.email}`;
+                }
+            });
+
+            // Detect and map phones
+            const phones = detectPhones(text);
+            phones.forEach(phone => {
+                if (!mapping[phone]) {
+                    mapping[phone] = `PHONE_${++counter.phone}`;
+                }
+            });
+
+            // Detect and map companies
+            const companies = detectCompanies(text);
+            companies.forEach(company => {
+                if (!mapping[company]) {
+                    mapping[company] = `COMPANY_${++counter.company}`;
+                }
+            });
+
+            return mapping;
+        };
+
+        // ========================================
+        // MASTER FORMAT & PROMPTS
+        // ========================================
+        
+        const MASTER_FORMAT = `MASTER FORMAT – Globala regler för alla dokument
+
+1. Rubriknivåer
+* H1 = huvudsektion
+* H2 = underrubrik
+* H3 = detaljnivå
+
+2. Punktlistor
+* • = standardpunkt
+* – = fördjupningspunkt
+* 1. / 2. / 3. = numrerad lista
+
+3. Tabeller (markdown-standard)
+* max 6 kolumner
+* korta, tydliga celler
+* ingen tom rad mellan rader
+* konsekvent kolumnordning
+
+Standard risktabell:
+Risk | Impact | Likelihood | Severity | Trend | Mitigation | Owner
+
+Standard actiontabell:
+Action | Owner | Deadline | Status
+
+Standard decisiontabell:
+Decision | Date | Owner | Impact
+
+4. Språk & Ton
+* professionell
+* rak och konsultmässig
+* inga utsvävningar
+* max 3–4 meningar per stycke
+* inga emojis
+* presentationsredo språk
+* konsekvent begreppsanvändning
+
+5. Dokumentstruktur (alla dokument börjar med Summary)
+1. Summary (3–6 bullets, inga detaljer)
+2. Body (rubriker enligt mall)
+
+6. Riskformat (globalt)
+* riskbeskrivning
+* Impact (Low/Medium/High)
+* Likelihood (Low/Medium/High)
+* Severity = Impact × Likelihood
+* Trend (↑ / → / ↓)
+* Mitigation
+* Owner
+
+7. Actionformat
+* korta rader (max 10 ord)
+* Deadline i formatet YYYY-MM-DD
+* Status = Not started / In progress / Done
+
+8. Decisionformat
+Som bullets:
+• Beslut: X
+• Orsak: Y
+• Påverkan: Z
+
+9. Mötesprotokoll-standard
+1. Summary
+2. Key Discussion Points
+3. Decisions
+4. Actions
+5. Next Steps
+6. Risks
+7. Links (om relevant)
+
+10. Slide-standard
+* Titel (max 6 ord)
+* 3–5 bullets
+* Key Message
+* Risk eller dependency
+* Presenter Notes
+
+11. User Story-standard
+Som {roll} vill jag {mål} så att {nytta}.
+Acceptanskriterier:
+• Givet att …
+• När …
+• Då …
+
+12. Övergripande regler
+* inga texter längre än 4 meningar
+* inga upprepningar
+* samma begrepp varje gång
+* alltid presentationsredo
+
+13. DATUM-SEKTIONSFORMAT
+Rådata struktureras med datum-sektioner:
+
+=YYYY-MM-DD=           ← Datum-tag (obligatorisk)
+=MÖTE=                 ← Möte-tag (valfri, endast för möten)
+text här               ← Rådata innehåll
+===                    ← Slut-tag (obligatorisk)
+
+Exempel:
+=2024-12-02=
+Login-modul klar
+50 testanvändare
+===
+
+=2024-12-03=
+=MÖTE=
+API-design diskussion
+Beslut: REST approach
+Action: Sara specificerar API onsdag
+===
+
+AI ska läsa datum från dessa sektioner och förstå tidslinjer automatiskt.`;
+
+        const SWEDISH_MASTER_PROMPT = `Du är min PMO-assistent.
+Du ska alltid producera text enligt MASTER FORMAT.
+Följ rubriknivåer, punktstilar, tabellformat, språkstil och alla standarder exakt.
+
+VIKTIGT - DATUM-HANTERING:
+Rådata kommer strukturerad med datum-sektioner i formatet:
+=YYYY-MM-DD=
+text
+===
+
+Eller med möte-markering:
+=YYYY-MM-DD=
+=MÖTE=
+text
+===
+
+Du ska:
+- Läsa datum från dessa sektioner
+- Förstå vilken tidsperiod rådata täcker
+- Skapa dokument baserat på datumen i rådatat
+- Inte behöva fråga användaren om datum
+
+VIKTIGT - ANONYMISERAD DATA:
+Text kan innehålla anonymiserade markeringar som [PERSON_1], [COMPANY_1], [EMAIL_1] etc.
+Behandla dessa som vanlig text och behåll dem i ditt svar.
+
+Returnera ENDAST ETT dokument i markdown-format.
+INTE två versioner. INTE separata OneNote/Word-sektioner.
+Börja direkt med dokumentets titel med #.`;
+
+        const ENGLISH_MASTER_PROMPT = `You are my PMO assistant.
+Always follow MASTER FORMAT.
+Follow heading hierarchy, bullet styles, table structure, tone, and all global standards exactly.
+
+IMPORTANT - DATE HANDLING:
+Raw data comes structured with date sections in format:
+=YYYY-MM-DD=
+text
+===
+
+Or with meeting marker:
+=YYYY-MM-DD=
+=MÖTE=
+text
+===
+
+You must:
+- Read dates from these sections
+- Understand what time period the data covers
+- Create documents based on the dates in the raw data
+- Not need to ask user for dates
+
+IMPORTANT - ANONYMIZED DATA:
+Text may contain anonymized markers like [PERSON_1], [COMPANY_1], [EMAIL_1] etc.
+Treat these as normal text and keep them in your response.
+
+Return ONLY ONE document in markdown format.
+NOT two versions. NOT separate OneNote/Word sections.
+Start directly with the document title using #.`;
+
+        const WORD_FORMAT = `Word Format Instructions:
+
+Rubriker:
+- Rubrik1 (H1): Segoe UI Semibold, 16pt, färg #1A4D80 (mörkblå)
+- Rubrik2 (H2): Segoe UI Semibold, 14pt, färg #416D94 (mellanblå)
+- Rubrik3 (H3): Segoe UI Semibold, 12pt, färg #444444 (mörkgrå)
+
+Brödtext:
+- Segoe UI, 11pt, svart
+
+Tabeller:
+- Header: Segoe UI, 10pt, fetstil (bold)
+- Data: Segoe UI, 10pt, normal`;
+
+        const DOCUMENT_TYPES = [
+            { id: 'weekly', name: 'Weekly Report', nameSv: 'Veckorapport' },
+            { id: 'meeting', name: 'Meeting Summary', nameSv: 'Mötesprotokoll' },
+            { id: 'risk', name: 'Risk Log', nameSv: 'Risklogg' },
+            { id: 'action', name: 'Action Log', nameSv: 'Actionlogg' },
+            { id: 'userstory', name: 'User Stories', nameSv: 'User Stories' },
+            { id: 'steering', name: 'Steering Slides', nameSv: 'Styrgruppsslides' },
+            { id: 'milestones', name: 'Milestones & Timeline', nameSv: 'Milstolpar & Tidslinje' },
+            { id: 'trends', name: 'Trends', nameSv: 'Trender' },
+            { id: 'project', name: 'Project Report', nameSv: 'Projektrapport' }
+        ];
+
+        const ANALYSIS_TYPES = [
+            { id: 'pmo', name: 'PMO-analys', description: 'Risker, blockerare, gap, mitigeringar' },
+            { id: 'requirements', name: 'Kravanalys', description: 'User stories, epics, acceptanskriterier' },
+            { id: 'meeting', name: 'Mötesanalys', description: 'Beslut, actions, implicita risker' }
+        ];
+
+        // ========================================
+        // GDPR CONSENT POPUP
+        // ========================================
+        
+        function GDPRConsent({ onAccept }) {
+            const [show, setShow] = useState(false);
+
+            useEffect(() => {
+                const consent = localStorage.getItem('gdpr_consent');
+                if (!consent) {
+                    setShow(true);
+                }
+            }, []);
+
+            if (!show) return null;
+
+            return (
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="glass rounded-3xl p-8 max-w-2xl shadow-2xl">
+                        <h2 className="text-3xl font-bold gradient-text mb-4">🔒 Dataskydd & GDPR</h2>
+                        <div className="text-gray-700 space-y-4 mb-6">
+                            <p>
+                                <strong>AI PMO Generator</strong> använder AI-tjänster för att bearbeta din projektdata.
+                            </p>
+                            <p>
+                                <strong>Vad vi gör för att skydda din data:</strong>
+                            </p>
+                            <ul className="list-disc pl-6 space-y-2">
+                                <li><strong>Anonymisering:</strong> Personnamn, företag, email och telefonnummer anonymiseras automatiskt innan data skickas till AI</li>
+                                <li><strong>EU-lagring:</strong> All din data lagras i EU (Frankfurt/London)</li>
+                                <li><strong>Kryptering:</strong> All data skickas krypterat (TLS)</li>
+                                <li><strong>Ingen träning:</strong> Din data används INTE för att träna AI-modeller</li>
+                                <li><strong>Dina rättigheter:</strong> Du kan när som helst exportera eller radera all din data</li>
+                            </ul>
+                            <p className="text-sm text-gray-600">
+                                Genom att klicka "Jag godkänner" accepterar du vår <a href="#" className="text-purple-600 underline">Privacy Policy</a> och 
+                                att vi använder AI för att bearbeta din projektdata.
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => {
+                                localStorage.setItem('gdpr_consent', 'true');
+                                localStorage.setItem('gdpr_consent_date', new Date().toISOString());
+                                setShow(false);
+                                onAccept();
+                            }}
+                            className="w-full btn-gradient px-8 py-4 text-white rounded-xl font-bold text-lg shadow-xl"
+                        >
+                            ✅ Jag godkänner
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        // ========================================
+        // AUTH COMPONENTS
+        // ========================================
+        
+        function AuthPage({ onAuth }) {
+            const [mode, setMode] = useState('login'); // 'login' or 'signup'
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState('');
+
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError('');
+
+                const { data, error: authError } = await supabase.auth.signInWithPassword({
+                    email,
+                    password
+                });
+
+                if (authError) {
+                    setError(authError.message);
+                    setLoading(false);
+                } else {
+                    onAuth(data.user);
+                }
+            };
+
+            const handleSignup = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError('');
+
+                const { data, error: authError } = await supabase.auth.signUp({
+                    email,
+                    password
+                });
+
+                if (authError) {
+                    setError(authError.message);
+                    setLoading(false);
+                } else {
+                    setError('');
+                    alert('✅ Konto skapat! Kolla din email för att verifiera kontot.');
+                    setMode('login');
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="min-h-screen flex items-center justify-center px-4 py-12">
+                    <div className="glass rounded-3xl p-8 w-full max-w-md shadow-2xl">
+                        <div className="text-center mb-8">
+                            <h1 className="text-4xl font-bold gradient-text mb-2">✨ AI PMO Generator</h1>
+                            <p className="text-gray-600">v7.0-beta med GDPR & Supabase</p>
+                        </div>
+
+                        <div className="tab-container mb-6">
+                            <div className="flex gap-0">
+                                <button
+                                    onClick={() => setMode('login')}
+                                    className={`flex-1 py-3 px-6 font-semibold transition-all rounded-t-xl ${
+                                        mode === 'login' ? 'tab-active' : 'tab-inactive'
+                                    }`}
+                                >
+                                    Logga in
+                                </button>
+                                <button
+                                    onClick={() => setMode('signup')}
+                                    className={`flex-1 py-3 px-6 font-semibold transition-all rounded-t-xl ${
+                                        mode === 'signup' ? 'tab-active' : 'tab-inactive'
+                                    }`}
+                                >
+                                    Skapa konto
+                                </button>
+                            </div>
+                        </div>
+
+                        <form onSubmit={mode === 'login' ? handleLogin : handleSignup} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">
+                                    📧 Email
+                                </label>
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="din.email@exempel.se"
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl"
+                                    required
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">
+                                    🔒 Lösenord
+                                </label>
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="••••••••"
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl"
+                                    required
+                                    minLength={6}
+                                />
+                            </div>
+
+                            {error && (
+                                <div className="p-3 bg-red-50 border-2 border-red-200 text-red-700 rounded-xl text-sm">
+                                    ⚠️ {error}
+                                </div>
+                            )}
+
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full btn-gradient px-6 py-4 text-white rounded-xl font-bold text-lg shadow-xl disabled:opacity-50"
+                            >
+                                {loading ? (
+                                    <span className="flex items-center justify-center gap-2">
+                                        <span className="pulse">⏳</span> {mode === 'login' ? 'Loggar in...' : 'Skapar konto...'}
+                                    </span>
+                                ) : (
+                                    mode === 'login' ? '🚀 Logga in' : '✨ Skapa konto'
+                                )}
+                            </button>
+                        </form>
+
+                        <div className="mt-6 pt-6 border-t border-gray-200 text-center text-sm text-gray-600">
+                            <p>🔒 All data lagras säkert i EU</p>
+                            <p>🤖 Automatisk anonymisering av känslig data</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // ========================================
+        // MAIN APP
+        // ========================================
+        
+        function App() {
+            const [user, setUser] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [gdprAccepted, setGdprAccepted] = useState(false);
+
+            useEffect(() => {
+                // Check current auth session
+                supabase.auth.getSession().then(({ data: { session } }) => {
+                    setUser(session?.user ?? null);
+                    setLoading(false);
+                });
+
+                // Listen for auth changes
+                const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+                    setUser(session?.user ?? null);
+                });
+
+                // Check GDPR consent
+                const consent = localStorage.getItem('gdpr_consent');
+                setGdprAccepted(!!consent);
+
+                return () => subscription.unsubscribe();
+            }, []);
+
+            if (loading) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center">
+                        <div className="text-white text-2xl">
+                            <span className="pulse">⏳</span> Laddar...
+                        </div>
+                    </div>
+                );
+            }
+
+            if (!user) {
+                return <AuthPage onAuth={setUser} />;
+            }
+
+            if (!gdprAccepted) {
+                return <GDPRConsent onAccept={() => setGdprAccepted(true)} />;
+            }
+
+            return <MainApp user={user} />;
+        }
+
+        function MainApp({ user }) {
+            const [view, setView] = useState('projects');
+            const [currentProject, setCurrentProject] = useState(null);
+            const [projects, setProjects] = useState([]);
+            const [loading, setLoading] = useState(true);
+
+            // Load projects from Supabase
+            useEffect(() => {
+                loadProjects();
+            }, []);
+
+            const loadProjects = async () => {
+                setLoading(true);
+                const { data, error } = await supabase
+                    .from('projects')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) {
+                    console.error('Error loading projects:', error);
+                    alert('Kunde inte ladda projekt: ' + error.message);
+                } else {
+                    setProjects(data || []);
+                }
+                setLoading(false);
+            };
+
+            const handleLogout = async () => {
+                await supabase.auth.signOut();
+            };
+
+            return (
+                <div className="min-h-screen">
+                    <Header 
+                        user={user}
+                        onLogout={handleLogout}
+                        onBack={() => {
+                            setCurrentProject(null);
+                            setView('projects');
+                        }}
+                        showBack={view !== 'projects'}
+                    />
+                    
+                    {view === 'projects' && (
+                        <ProjectsList 
+                            projects={projects}
+                            loading={loading}
+                            onSelectProject={(project) => {
+                                setCurrentProject(project);
+                                setView('workspace');
+                            }}
+                            onRefresh={loadProjects}
+                        />
+                    )}
+
+                    {view === 'workspace' && currentProject && (
+                        <Workspace 
+                            project={currentProject}
+                            onViewHistory={() => setView('history')}
+                            onRefresh={loadProjects}
+                        />
+                    )}
+
+                    {view === 'history' && currentProject && (
+                        <DocumentHistory 
+                            project={currentProject}
+                            onBack={() => setView('workspace')}
+                        />
+                    )}
+                </div>
+            );
+        }
+
+        // Header Component
+        function Header({ user, onLogout, onBack, showBack }) {
+            return (
+                <div className="glass-dark shadow-2xl">
+                    <div className="max-w-7xl mx-auto px-3 md:px-6 py-4 md:py-6">
+                        <div className="flex items-center justify-between flex-wrap gap-3">
+                            <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
+                                {showBack && (
+                                    <button 
+                                        onClick={onBack}
+                                        className="text-white hover:text-gray-200 transition-all flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-white/10"
+                                    >
+                                        <span className="text-xl">←</span> Tillbaka
+                                    </button>
+                                )}
+                                <div>
+                                    <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center gap-2">
+                                        <span className="text-3xl md:text-4xl">✨</span> 
+                                        <span>AI PMO Generator</span>
+                                        <span className="text-xs md:text-sm font-normal opacity-75">v7.0-beta</span>
+                                    </h1>
+                                    <p className="text-white/70 text-xs md:text-sm mt-1">GDPR-compliant med Supabase</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 md:gap-3">
+                                <span className="text-white/70 text-sm hidden md:inline">{user.email}</span>
+                                <button
+                                    onClick={onLogout}
+                                    className="px-3 md:px-6 py-2 md:py-3 bg-white/20 hover:bg-white/30 text-white rounded-lg md:rounded-xl transition-all backdrop-blur-sm border border-white/30 font-medium text-sm md:text-base"
+                                >
+                                    <span className="hidden md:inline">🚪 Logga ut</span>
+                                    <span className="md:hidden">🚪</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Projects List Component
+        function ProjectsList({ projects, loading, onSelectProject, onRefresh }) {
+            const [newProjectName, setNewProjectName] = useState('');
+            const [showCreateForm, setShowCreateForm] = useState(false);
+            const [creating, setCreating] = useState(false);
+
+            const handleCreate = async () => {
+                if (!newProjectName.trim()) return;
+
+                setCreating(true);
+                
+                // Get current user
+                const { data: { user } } = await supabase.auth.getUser();
+                
+                if (!user) {
+                    alert('Du måste vara inloggad för att skapa projekt');
+                    setCreating(false);
+                    return;
+                }
+
+                const { data, error } = await supabase
+                    .from('projects')
+                    .insert([{ 
+                        name: newProjectName.trim(),
+                        user_id: user.id 
+                    }])
+                    .select()
+                    .single();
+
+                if (error) {
+                    alert('Kunde inte skapa projekt: ' + error.message);
+                } else {
+                    setNewProjectName('');
+                    setShowCreateForm(false);
+                    onRefresh();
+                    onSelectProject(data);
+                }
+                setCreating(false);
+            };
+
+            const handleDelete = async (projectId) => {
+                if (!confirm('Är du säker på att du vill radera detta projekt? All data raderas permanent.')) {
+                    return;
+                }
+
+                const { error } = await supabase
+                    .from('projects')
+                    .delete()
+                    .eq('id', projectId);
+
+                if (error) {
+                    alert('Kunde inte radera projekt: ' + error.message);
+                } else {
+                    onRefresh();
+                }
+            };
+
+            if (loading) {
+                return (
+                    <div className="max-w-6xl mx-auto px-6 py-12">
+                        <div className="glass rounded-3xl shadow-2xl p-8 text-center">
+                            <span className="pulse text-4xl">⏳</span>
+                            <p className="text-gray-600 mt-4">Laddar projekt...</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="max-w-6xl mx-auto px-6 py-12 fade-in">
+                    <div className="glass rounded-3xl shadow-2xl p-8">
+                        <div className="mb-8">
+                            <h2 className="text-4xl font-bold gradient-text mb-2">Mina Projekt</h2>
+                            <p className="text-gray-600">Synkat med Supabase - tillgängligt på alla enheter</p>
+                        </div>
+                        
+                        {projects.length === 0 ? (
+                            <div className="text-center py-20">
+                                <div className="text-7xl mb-6">📁</div>
+                                <p className="text-gray-500 text-lg mb-8">Inga projekt ännu</p>
+                                <button
+                                    onClick={() => setShowCreateForm(true)}
+                                    className="btn-gradient px-8 py-4 text-white rounded-2xl font-semibold text-lg shadow-xl"
+                                >
+                                    ✨ Skapa ditt första projekt
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                {projects.map(project => (
+                                    <div 
+                                        key={project.id}
+                                        className="card glass flex flex-col md:flex-row md:items-center md:justify-between p-6 rounded-2xl border border-gray-200 gap-4"
+                                    >
+                                        <div className="flex-1">
+                                            <h3 className="text-xl font-bold text-gray-800 flex items-center gap-3">
+                                                <span className="text-2xl">📁</span> {project.name}
+                                            </h3>
+                                            <p className="text-gray-500 mt-1">
+                                                Skapad {new Date(project.created_at).toLocaleDateString('sv-SE', { 
+                                                    day: 'numeric', 
+                                                    month: 'long', 
+                                                    year: 'numeric' 
+                                                })}
+                                            </p>
+                                        </div>
+                                        <div className="flex flex-col md:flex-row gap-3">
+                                            <button
+                                                onClick={() => onSelectProject(project)}
+                                                className="btn-gradient px-6 py-3 text-white rounded-xl font-medium shadow-lg w-full md:w-auto"
+                                            >
+                                                Öppna →
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(project.id)}
+                                                className="px-6 py-3 bg-red-50 text-red-600 rounded-xl font-medium hover:bg-red-100 transition-all w-full md:w-auto"
+                                            >
+                                                Radera
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                                
+                                <button
+                                    onClick={() => setShowCreateForm(true)}
+                                    className="w-full py-6 border-3 border-dashed border-purple-300 rounded-2xl text-purple-600 hover:border-purple-500 hover:bg-purple-50 transition-all font-medium text-lg"
+                                >
+                                    ✨ Skapa nytt projekt
+                                </button>
+                            </div>
+                        )}
+
+                        {showCreateForm && (
+                            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 fade-in p-4">
+                                <div className="glass rounded-3xl p-8 w-full max-w-md shadow-2xl">
+                                    <h3 className="text-2xl font-bold gradient-text mb-6">Skapa nytt projekt</h3>
+                                    <input
+                                        type="text"
+                                        value={newProjectName}
+                                        onChange={(e) => setNewProjectName(e.target.value)}
+                                        placeholder="Projektnamn"
+                                        className="w-full px-6 py-4 border-2 border-gray-200 rounded-xl mb-6 text-lg"
+                                        onKeyPress={(e) => e.key === 'Enter' && handleCreate()}
+                                        autoFocus
+                                    />
+                                    <div className="flex flex-col md:flex-row gap-3">
+                                        <button
+                                            onClick={handleCreate}
+                                            disabled={creating}
+                                            className="flex-1 btn-gradient px-6 py-4 text-white rounded-xl font-semibold shadow-lg disabled:opacity-50"
+                                        >
+                                            {creating ? '⏳ Skapar...' : 'Skapa'}
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setShowCreateForm(false);
+                                                setNewProjectName('');
+                                            }}
+                                            className="flex-1 px-6 py-4 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-all"
+                                        >
+                                            Avbryt
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        // Workspace Component (PLACEHOLDER - Detta skulle behöva implementeras fullt)
+        function Workspace({ project, onViewHistory, onRefresh }) {
+            return (
+                <div className="max-w-7xl mx-auto px-6 py-12 fade-in">
+                    <div className="glass rounded-3xl shadow-2xl p-8">
+                        <div className="text-center py-20">
+                            <div className="text-7xl mb-6">🚧</div>
+                            <h2 className="text-3xl font-bold gradient-text mb-4">Workspace under utveckling</h2>
+                            <p className="text-gray-600 mb-8">
+                                Detta är v7.0-beta. Workspace-funktionalitet kommer i nästa uppdatering.
+                            </p>
+                            <p className="text-sm text-gray-500">
+                                Projekt: <strong>{project.name}</strong>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Document History Component (PLACEHOLDER)
+        function DocumentHistory({ project, onBack }) {
+            return (
+                <div className="max-w-6xl mx-auto px-4 py-8">
+                    <div className="bg-white rounded-lg shadow-md p-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-2xl font-bold text-gray-800">
+                                Dokumenthistorik: {project.name}
+                            </h2>
+                            <button
+                                onClick={onBack}
+                                className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition"
+                            >
+                                ← Tillbaka till arbetsyta
+                            </button>
+                        </div>
+                        <div className="text-center py-12 text-gray-500">
+                            <p>Under utveckling...</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Render App
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
