@@ -1489,33 +1489,72 @@ OM INGA RISKER FINNS:
 
                     action: `DOKUMENTTYP: ${docTypeNameLocal}
 
-EXTRAHERA ENDAST ACTIONS:
-- Specificerade uppgifter/tasks
-- Ansvarig person (om angivet)
-- Deadline (om angivet)
-- Status (öppen/stängd/pågående)
+EXTRAHERA ALLA ACTIONS/UPPGIFTER:
+- Explicita actions: "Action:", "TODO:", "Ska göra", "Uppgift:"
+- Implicita uppgifter: Verb + objekt (t.ex. "Sara specificerar API", "Johan fixar bug")
+- Beslut som leder till action (t.ex. "Beslut: Vi ska migrera" → Action: Migrera system)
+- Nämnda deadlines även utan explicit action
+- Ansvarig person behövs INTE - skippa "Owner" om okänd
+
+LETA EFTER DESSA MÖNSTER:
+- "[Person] ska [göra något]"
+- "[Person] [verb] [objekt]" (Sara skickar spec)
+- "Vi måste [göra något]"
+- "Nästa steg: [något]"
+- Deadline-omnämnanden (senast fredag, deadline X, etc.)
+
+TABELLFORMAT (Owner kan vara TBD):
+Action | Owner | Deadline | Status
+
+EXEMPEL:
+Rådata: "Sara specificerar API senast onsdag"
+→ Action: Specificera API | Owner: Sara | Deadline: Onsdag | Status: Not started
+
+Rådata: "API-dokumentationen måste uppdateras"
+→ Action: Uppdatera API-dokumentation | Owner: TBD | Deadline: - | Status: Not started
 
 IGNORERA:
-- Generella statusuppdateringar
-- Mötesinformation (om inte actions från möte)
-- Risker som inte har specifika actions
+- Statusuppdateringar om klara saker
+- Risker utan åtgärder
 `,
 
                     userstory: `DOKUMENTTYP: ${docTypeNameLocal}
 
-SKAPA USER STORIES:
-- Från funktionella krav i rådata
-- I formatet: Som [roll] vill jag [funktion] så att [nytta]
+KRITISK REGEL - BASERA ENDAST PÅ RÅDATA:
+- Skapa user stories ENDAST från funktionella krav som FINNS i rådata
+- Hitta INTE på egna stories
+- Hitta INTE på egna acceptanskriterier
+- OM rådata saknar user story-information → Skriv "Ingen user story-information hittades i rådata"
 
-INKLUDERA:
-- Acceptanskriterier
-- Tekniska constraints (om relevanta)
-- Prioritet
+SKAPA USER STORIES:
+- Format: Som [roll] vill jag [funktion] så att [nytta]
+- [roll], [funktion] och [nytta] MÅSTE komma från rådata
+- Om roll saknas i rådata → använd "användare" eller "systemanvändare"
+
+LETA EFTER:
+- Explicita krav: "Användaren ska kunna...", "Systemet måste..."
+- Funktionsbeskrivningar: "Login-funktion", "Betalning", etc.
+- Nämnda användarroller
+- Beskrivna funktioner eller features
+
+ACCEPTANSKRITERIER:
+- ENDAST skapa från information i rådata
+- OM inget specifikt nämns → skippa acceptanskriterier
+- Format: "Givet att... När... Då..."
+
+EXEMPEL:
+Rådata: "Login-modul med användarnamn och lösenord färdig"
+✅ Korrekt story: Som användare vill jag logga in med användarnamn och lösenord så att jag kan komma åt systemet
+
+Rådata: "Backend API klar"
+❌ Fel: Hitta på 10 olika API user stories
+✅ Korrekt: "Begränsad information - Backend API nämns men inga specifika användarkrav beskrivna"
 
 IGNORERA:
-- Tekniska implementation-detaljer
+- Tekniska implementation-detaljer (om inte del av användarkrav)
 - Buggar
-- Infrastruktur`,
+- Infrastruktur
+- Interna processer`,
 
                     steering: `DOKUMENTTYP: ${docTypeNameLocal}
 
@@ -1864,7 +1903,7 @@ Mötesinformation här
                                                                             e.stopPropagation();
                                                                             deleteRawDataEntry(entry.id);
                                                                         }}
-                                                                        className="ml-2 px-2 py-1 bg-red-100 hover:bg-red-200 text-red-600 rounded text-xs"
+                                                                        className="ml-2 px-2 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-xs font-medium"
                                                                     >
                                                                         Ta bort
                                                                     </button>
@@ -1979,11 +2018,116 @@ Mötesinformation här
             };
 
             const downloadAsFile = () => {
-                const blob = new Blob([result], { type: 'text/plain' });
+                // Konvertera markdown till HTML med styling
+                const htmlContent = `<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PMO Dokument</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 20px;
+            line-height: 1.6;
+            color: #2d3748;
+            background: #f7fafc;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1a202c;
+            margin-top: 24px;
+            margin-bottom: 16px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 8px;
+        }
+        h2 {
+            font-size: 22px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-top: 20px;
+            margin-bottom: 12px;
+        }
+        h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #4a5568;
+            margin-top: 16px;
+            margin-bottom: 8px;
+        }
+        p {
+            margin: 12px 0;
+        }
+        ul {
+            margin: 16px 0;
+            padding-left: 0;
+            list-style: none;
+        }
+        ul li {
+            margin: 8px 0;
+            padding-left: 24px;
+            position: relative;
+        }
+        ul li:before {
+            content: "•";
+            position: absolute;
+            left: 8px;
+            color: #667eea;
+            font-weight: bold;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        table th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        table td {
+            padding: 12px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 14px;
+        }
+        table tr:hover {
+            background: #f7fafc;
+        }
+        strong {
+            font-weight: 600;
+            color: #2d3748;
+        }
+        @media print {
+            body { background: white; margin: 0; }
+            .container { box-shadow: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        ${markdownToHtml(result)}
+    </div>
+</body>
+</html>`;
+                
+                const blob = new Blob([htmlContent], { type: 'text/html' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `pmo-document-${new Date().toISOString().split('T')[0]}.txt`;
+                a.download = `pmo-document-${new Date().toISOString().split('T')[0]}.html`;
                 a.click();
                 URL.revokeObjectURL(url);
             };
