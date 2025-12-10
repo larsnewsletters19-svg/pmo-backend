@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI PMO Generator v7.1</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
+        * {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        textarea, input {
+            transition: all 0.2s ease;
+        }
+        
+        textarea:focus, input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .tab-button {
+            transition: all 0.2s ease;
+        }
+        
+        .tab-button.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+    </style>
+</head>
+<body class="p-4">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useCallback } = React;
+
+        // Supabase config
+        const SUPABASE_URL = 'https://zcdjwtyxehfrkyhnpekq.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpjZGp3dHl4ZWhmcmt5aG5wZWtxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxOTEyNDYsImV4cCI6MjA4MDc2NzI0Nn0.Pg0etjmcDrgE30R0ERXpESxfAGyxhR2cqMnCGArEn9o';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const BACKEND_URL = window.location.hostname === 'localhost' 
+            ? 'http://localhost:5000'
+            : 'https://web-production-5822.up.railway.app';
+
+        function App() {
+            const [user, setUser] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [view, setView] = useState('projects');
+            const [projects, setProjects] = useState([]);
+            const [currentProject, setCurrentProject] = useState(null);
+            const [rawData, setRawData] = useState('');
+            const [rawDataTitle, setRawDataTitle] = useState('');
+            const [savedRawDataEntries, setSavedRawDataEntries] = useState([]);
+            const [selectedTab, setSelectedTab] = useState('weekly');
+            const [mode, setMode] = useState('generate');
+            const [language, setLanguage] = useState('svenska');
+            const [generatedDocument, setGeneratedDocument] = useState('');
+            const [isGenerating, setIsGenerating] = useState(false);
+
+            // Auth check
+            useEffect(() => {
+                supabase.auth.getSession().then(({ data: { session } }) => {
+                    setUser(session?.user ?? null);
+                    setLoading(false);
+                });
+
+                const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+                    setUser(session?.user ?? null);
+                });
+
+                return () => subscription.unsubscribe();
+            }, []);
+
+            // Load projects
+            useEffect(() => {
+                if (user) {
+                    loadProjects();
+                }
+            }, [user]);
+
+            // Realtime subscriptions
+            useEffect(() => {
+                if (!user || !currentProject) return;
+
+                const rawDataChannel = supabase
+                    .channel('raw-data-changes')
+                    .on('postgres_changes', 
+                        { 
+                            event: '*', 
+                            schema: 'public', 
+                            table: 'raw_data_entries',
+                            filter: `project_id=eq.${currentProject.id}`
+                        }, 
+                        (payload) => {
+                            loadProjectData(currentProject.id);
+                        }
+                    )
+                    .subscribe();
+
+                return () => {
+                    supabase.removeChannel(rawDataChannel);
+                };
+            }, [user, currentProject]);
+
+            const loadProjects = async () => {
+                const { data, error } = await supabase
+                    .from('projects')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                
+                if (error) {
+                    console.error('Error loading projects:', error);
+                } else {
+                    setProjects(data || []);
+                }
+            };
+
+            const loadProjectData = async (projectId) => {
+                const { data, error } = await supabase
+                    .from('raw_data_entries')
+                    .select('id, project_id, content, title, created_at')
+                    .eq('project_id', projectId)
+                    .order('created_at', { ascending: false });
+                
+                if (error) {
+                    console.error('Error loading raw data:', error);
+                } else {
+                    setSavedRawDataEntries(data || []);
+                }
+            };
+
+            const createProject = async (projectName) => {
+                if (!projectName.trim()) {
+                    alert('Projektnamn kan inte vara tomt');
+                    return;
+                }
+
+                const { data, error } = await supabase
+                    .from('projects')
+                    .insert([{ name: projectName.trim(), user_id: user.id }])
+                    .select()
+                    .single();
+
+                if (error) {
+                    console.error('Error creating project:', error);
+                    alert('Kunde inte skapa projekt');
+                } else {
+                    await loadProjects();
+                    setCurrentProject(data);
+                    setView('workspace');
+                }
+            };
+
+            const deleteProject = async (projectId) => {
+                if (!confirm('Är du säker på att du vill radera detta projekt? All data kommer att tas bort.')) {
+                    return;
+                }
+
+                const { error } = await supabase
+                    .from('projects')
+                    .delete()
+                    .eq('id', projectId);
+
+                if (error) {
+                    console.error('Error deleting project:', error);
+                    alert('Kunde inte radera projekt');
+                } else {
+                    await loadProjects();
+                    if (currentProject?.id === projectId) {
+                        setCurrentProject(null);
+                        setView('projects');
+                    }
+                }
+            };
+
+            const saveRawDataEntry = async () => {
+                if (!rawData.trim()) {
+                    alert('Rådata kan inte vara tom');
+                    return;
+                }
+
+                const titleToSave = rawDataTitle.trim() || `Rådata ${new Date().toLocaleDateString('sv-SE')}`;
+
+                const { error } = await supabase
+                    .from('raw_data_entries')
+                    .insert([{
+                        project_id: currentProject.id,
+                        content: rawData,
+                        title: titleToSave
+                    }]);
+
+                if (error) {
+                    console.error('Error saving raw data:', error);
+                    alert('Kunde inte spara rådata');
+                } else {
+                    alert('Rådata sparad!');
+                    setRawData('');
+                    setRawDataTitle('');
+                    await loadProjectData(currentProject.id);
+                }
+            };
+
+            const deleteRawDataEntry = async (entryId) => {
+                if (!confirm('Är du säker på att du vill radera denna rådata?')) {
+                    return;
+                }
+
+                const { error } = await supabase
+                    .from('raw_data_entries')
+                    .delete()
+                    .eq('id', entryId);
+
+                if (error) {
+                    console.error('Error deleting raw data:', error);
+                    alert('Kunde inte radera rådata');
+                } else {
+                    await loadProjectData(currentProject.id);
+                }
+            };
+
+            const generateDocument = async () => {
+                if (!rawData.trim()) {
+                    alert('Vänligen ange rådata först');
+                    return;
+                }
+
+                setIsGenerating(true);
+                setGeneratedDocument('');
+
+                try {
+                    const response = await fetch(`${BACKEND_URL}/generate`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            raw_data: rawData,
+                            document_type: selectedTab,
+                            mode: mode,
+                            language: language
+                        }),
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+
+                    setGeneratedDocument(data.onenote_version || data.analysis || '');
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert(`Fel vid generering: ${error.message}`);
+                } finally {
+                    setIsGenerating(false);
+                }
+            };
+
+            const downloadHTML = () => {
+                const htmlContent = `<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${currentProject?.name || 'Dokument'} - ${selectedTab}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        h1 { color: #2c5aa0; margin-top: 24px; margin-bottom: 16px; }
+        h2 { color: #2c5aa0; margin-top: 20px; margin-bottom: 12px; }
+        h3 { color: #2c5aa0; margin-top: 16px; margin-bottom: 8px; }
+        p { margin: 12px 0; }
+        ul, ol { margin: 16px 0; padding-left: 24px; }
+        ul li { margin: 8px 0; list-style-type: none; position: relative; padding-left: 20px; }
+        ul li:before { content: "•"; color: #667eea; font-weight: bold; position: absolute; left: 0; }
+        table { 
+            border-collapse: collapse; 
+            width: 100%; 
+            margin: 16px 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        table th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+        table td {
+            padding: 12px;
+            border: 1px solid #ddd;
+        }
+        table tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        table tr:hover {
+            background: #f7fafc;
+        }
+    </style>
+</head>
+<body>
+${generatedDocument}
+</body>
+</html>`;
+
+                const blob = new Blob([htmlContent], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${currentProject?.name || 'dokument'}_${selectedTab}_${new Date().toISOString().split('T')[0]}.html`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            };
+
+            if (loading) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center">
+                        <div className="text-white text-xl">Laddar...</div>
+                    </div>
+                );
+            }
+
+            if (!user) {
+                return <AuthView />;
+            }
+
+            if (view === 'projects') {
+                return (
+                    <div className="max-w-4xl mx-auto">
+                        <div className="glass-card p-8 mb-6">
+                            <div className="flex justify-between items-center mb-6">
+                                <h1 className="text-3xl font-bold" style={{color: '#2c5aa0', textShadow: '0 2px 4px rgba(0,0,0,0.1)'}}>
+                                    AI PMO Generator v7.1
+                                </h1>
+                                <button
+                                    onClick={() => supabase.auth.signOut()}
+                                    className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                                >
+                                    Logga ut
+                                </button>
+                            </div>
+
+                            <button
+                                onClick={() => {
+                                    const name = prompt('Projektnamn:');
+                                    if (name) createProject(name);
+                                }}
+                                className="w-full mb-6 px-6 py-3 btn-primary text-white rounded-lg font-semibold"
+                            >
+                                + Skapa nytt projekt
+                            </button>
+
+                            <div className="space-y-3">
+                                {projects.map(project => (
+                                    <div
+                                        key={project.id}
+                                        className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                                        onClick={() => {
+                                            setCurrentProject(project);
+                                            loadProjectData(project.id);
+                                            setView('workspace');
+                                        }}
+                                    >
+                                        <div className="flex-1">
+                                            <div className="font-semibold text-lg" style={{color: '#2c5aa0'}}>
+                                                {project.name}
+                                            </div>
+                                            <div className="text-sm text-gray-500">
+                                                Skapad: {new Date(project.created_at).toLocaleDateString('sv-SE')}
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                deleteProject(project.id);
+                                            }}
+                                            className="ml-4 px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-medium"
+                                        >
+                                            🗑️ Radera
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="max-w-6xl mx-auto">
+                    <div className="glass-card p-6 mb-6">
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <button
+                                    onClick={() => setView('projects')}
+                                    className="text-gray-600 hover:text-gray-800 mb-2"
+                                >
+                                    ← Tillbaka till projekt
+                                </button>
+                                <h1 className="text-2xl font-bold" style={{color: '#2c5aa0', textShadow: '0 2px 4px rgba(0,0,0,0.1)'}}>
+                                    {currentProject?.name}
+                                </h1>
+                            </div>
+                            <button
+                                onClick={() => supabase.auth.signOut()}
+                                className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg"
+                            >
+                                Logga ut
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-6">
+                        <div className="glass-card p-6">
+                            <h2 className="text-xl font-bold mb-4" style={{color: '#2c5aa0'}}>Rådata</h2>
+                            
+                            <input
+                                type="text"
+                                value={rawDataTitle}
+                                onChange={(e) => setRawDataTitle(e.target.value)}
+                                placeholder="Titel (valfri)"
+                                className="w-full p-3 border border-gray-300 rounded-lg mb-3"
+                            />
+
+                            <textarea
+                                value={rawData}
+                                onChange={(e) => setRawData(e.target.value)}
+                                placeholder="Skriv eller klistra in rådata här..."
+                                className="w-full h-64 p-4 border border-gray-300 rounded-lg resize-none mb-4"
+                            />
+
+                            <div className="space-y-3">
+                                <button
+                                    onClick={saveRawDataEntry}
+                                    className="w-full px-4 py-2 btn-primary text-white rounded-lg font-semibold"
+                                >
+                                    💾 Spara rådata
+                                </button>
+
+                                <button
+                                    onClick={() => {
+                                        const modal = document.createElement('div');
+                                        modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+                                        
+                                        const content = document.createElement('div');
+                                        content.style.cssText = 'background:white;padding:24px;border-radius:12px;max-width:500px;width:90%;max-height:80vh;overflow-y:auto;';
+                                        
+                                        content.innerHTML = `
+                                            <h3 style="color:#2c5aa0;font-size:1.25rem;font-weight:600;margin-bottom:16px;">Ladda sparad rådata</h3>
+                                            <div style="space-y:8px;">
+                                                ${savedRawDataEntries.map(entry => {
+                                                    const displayTitle = entry.title || (() => {
+                                                        const contentPreview = entry.content.split('\n')[0].substring(0, 50);
+                                                        const dateMatch = entry.content.match(/=(\d{4}-\d{2}-\d{2})=/);
+                                                        return dateMatch ? `Rådata ${dateMatch[1]}` : contentPreview || 'Sparad rådata';
+                                                    })();
+                                                    
+                                                    return `
+                                                        <div style="padding:12px;background:#f9fafb;border-radius:8px;margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:start;" 
+                                                             onmouseover="this.style.background='#f3f4f6'" 
+                                                             onmouseout="this.style.background='#f9fafb'">
+                                                            <div style="flex:1;" onclick="
+                                                                document.querySelector('textarea').value = \`${entry.content.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`;
+                                                                document.body.removeChild(document.querySelector('[style*=fixed]'));
+                                                            ">
+                                                                <div style="font-weight:600;color:#2c5aa0;margin-bottom:4px;">${displayTitle}</div>
+                                                                <div style="font-size:0.75rem;color:#6b7280;margin-bottom:4px;">
+                                                                    Sparad: ${new Date(entry.created_at).toLocaleString('sv-SE')}
+                                                                </div>
+                                                                <div style="font-size:0.75rem;color:#9ca3af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                                                    ${entry.content.substring(0, 80)}...
+                                                                </div>
+                                                            </div>
+                                                            <button onclick="
+                                                                event.stopPropagation();
+                                                                if (confirm('Radera denna rådata?')) {
+                                                                    fetch('${BACKEND_URL}/delete-raw-data', {
+                                                                        method: 'POST',
+                                                                        headers: {'Content-Type': 'application/json'},
+                                                                        body: JSON.stringify({entry_id: '${entry.id}'})
+                                                                    }).then(() => location.reload());
+                                                                }
+                                                            " style="margin-left:8px;padding:4px 8px;background:#ef4444;color:white;border:none;border-radius:4px;font-size:0.75rem;cursor:pointer;font-weight:500;">
+                                                                Ta bort
+                                                            </button>
+                                                        </div>
+                                                    `;
+                                                }).join('')}
+                                            </div>
+                                            <button onclick="document.body.removeChild(document.querySelector('[style*=fixed]'))" 
+                                                    style="margin-top:16px;width:100%;padding:8px;background:#6b7280;color:white;border:none;border-radius:8px;cursor:pointer;">
+                                                Stäng
+                                            </button>
+                                        `;
+                                        
+                                        modal.appendChild(content);
+                                        document.body.appendChild(modal);
+                                    }}
+                                    className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg"
+                                >
+                                    📂 Ladda sparad rådata
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="glass-card p-6">
+                            <h2 className="text-xl font-bold mb-4" style={{color: '#2c5aa0'}}>Generera dokument</h2>
+                            
+                            <div className="mb-4">
+                                <label className="block text-sm font-semibold mb-2">Dokumenttyp:</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {['weekly', 'meeting', 'risk', 'action', 'stories', 'steering', 'milestones', 'trends', 'project'].map(tab => (
+                                        <button
+                                            key={tab}
+                                            onClick={() => setSelectedTab(tab)}
+                                            className={`tab-button px-3 py-2 rounded-lg text-sm font-medium ${selectedTab === tab ? 'active' : 'bg-gray-100 hover:bg-gray-200'}`}
+                                        >
+                                            {tab === 'weekly' && '📊 Veckorapport'}
+                                            {tab === 'meeting' && '📝 Möte'}
+                                            {tab === 'risk' && '⚠️ Risklogg'}
+                                            {tab === 'action' && '✅ Actionlog'}
+                                            {tab === 'stories' && '📖 User Stories'}
+                                            {tab === 'steering' && '🎯 Styrgrupp'}
+                                            {tab === 'milestones' && '🗓️ Milstolpar'}
+                                            {tab === 'trends' && '📈 Trender'}
+                                            {tab === 'project' && '📋 Projektrapport'}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="mb-4 flex gap-2">
+                                <button
+                                    onClick={() => setMode('generate')}
+                                    className={`flex-1 px-4 py-2 rounded-lg font-medium ${mode === 'generate' ? 'bg-purple-600 text-white' : 'bg-gray-100'}`}
+                                >
+                                    Generera
+                                </button>
+                                <button
+                                    onClick={() => setMode('analyze')}
+                                    className={`flex-1 px-4 py-2 rounded-lg font-medium ${mode === 'analyze' ? 'bg-purple-600 text-white' : 'bg-gray-100'}`}
+                                >
+                                    Analysera
+                                </button>
+                            </div>
+
+                            <div className="mb-4 flex gap-2">
+                                <button
+                                    onClick={() => setLanguage('svenska')}
+                                    className={`flex-1 px-4 py-2 rounded-lg font-medium ${language === 'svenska' ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}
+                                >
+                                    🇸🇪 Svenska
+                                </button>
+                                <button
+                                    onClick={() => setLanguage('english')}
+                                    className={`flex-1 px-4 py-2 rounded-lg font-medium ${language === 'english' ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}
+                                >
+                                    🇬🇧 English
+                                </button>
+                            </div>
+
+                            <button
+                                onClick={generateDocument}
+                                disabled={isGenerating}
+                                className="w-full mb-4 px-6 py-3 btn-primary text-white rounded-lg font-semibold disabled:opacity-50"
+                            >
+                                {isGenerating ? '⏳ Genererar...' : '🚀 Generera'}
+                            </button>
+
+                            {generatedDocument && (
+                                <>
+                                    <div 
+                                        className="bg-white border border-gray-200 rounded-lg p-4 mb-4 max-h-96 overflow-y-auto"
+                                        dangerouslySetInnerHTML={{__html: generatedDocument}}
+                                    />
+                                    <button
+                                        onClick={downloadHTML}
+                                        className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold"
+                                    >
+                                        📥 Ladda ner som HTML
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function AuthView() {
+            const [isLogin, setIsLogin] = useState(true);
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [loading, setLoading] = useState(false);
+
+            const handleAuth = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+
+                try {
+                    if (isLogin) {
+                        const { error } = await supabase.auth.signInWithPassword({ email, password });
+                        if (error) throw error;
+                    } else {
+                        const { error } = await supabase.auth.signUp({ email, password });
+                        if (error) throw error;
+                        alert('Registrering lyckades! Kolla din email för verifiering.');
+                    }
+                } catch (error) {
+                    alert(error.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="min-h-screen flex items-center justify-center">
+                    <div className="glass-card p-8 w-full max-w-md">
+                        <h1 className="text-3xl font-bold text-center mb-8" style={{color: '#2c5aa0'}}>
+                            AI PMO Generator v7.1
+                        </h1>
+                        
+                        <form onSubmit={handleAuth} className="space-y-4">
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="Email"
+                                className="w-full p-3 border border-gray-300 rounded-lg"
+                                required
+                            />
+                            <input
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="Lösenord"
+                                className="w-full p-3 border border-gray-300 rounded-lg"
+                                required
+                            />
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full px-6 py-3 btn-primary text-white rounded-lg font-semibold disabled:opacity-50"
+                            >
+                                {loading ? 'Laddar...' : (isLogin ? 'Logga in' : 'Registrera')}
+                            </button>
+                        </form>
+
+                        <button
+                            onClick={() => setIsLogin(!isLogin)}
+                            className="w-full mt-4 text-center text-sm text-gray-600 hover:text-gray-800"
+                        >
+                            {isLogin ? 'Behöver du ett konto? Registrera' : 'Har du ett konto? Logga in'}
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
