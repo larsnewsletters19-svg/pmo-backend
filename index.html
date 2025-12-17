@@ -1,0 +1,3346 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>AI PMO Generator v8.7 - Cloud Edition</title>
+    
+    <!-- Prevent service worker caching issues -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for(let registration of registrations) {
+                    registration.unregister();
+                }
+            });
+        }
+    </script>
+    
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- App Configuration & Security (v8.7.0) -->
+    <script src="js/config.js"></script>
+    <script src="js/security.js"></script>
+    
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
+        * {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .glass {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        
+        .glass-dark {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .btn-gradient {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-gradient:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+        
+        .card {
+            transition: all 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        textarea:focus, input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .tab-active {
+            background: white;
+            color: #667eea;
+            border-bottom: 4px solid #667eea;
+            position: relative;
+            font-weight: 600;
+        }
+        
+        .tab-inactive {
+            background: transparent;
+            color: #9ca3af;
+            border-bottom: 4px solid transparent;
+            font-weight: 500;
+        }
+        
+        .tab-inactive:hover {
+            background: rgba(102, 126, 234, 0.05);
+            color: #667eea;
+        }
+        
+        .tab-container {
+            border-bottom: 2px solid #e5e7eb;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .tab-container::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .tab-container {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        .action-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transform: scale(1);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+        
+        .action-button:hover:not(:disabled) {
+            transform: scale(1.02);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.4);
+        }
+        
+        .action-button:disabled {
+            background: #d1d5db;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+        
+        /* Markdown result styling */
+        .markdown-result h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1a202c;
+            margin-top: 24px;
+            margin-bottom: 16px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 8px;
+        }
+        
+        .markdown-result h2 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-top: 20px;
+            margin-bottom: 12px;
+        }
+        
+        .markdown-result h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #4a5568;
+            margin-top: 16px;
+            margin-bottom: 8px;
+        }
+        
+        .markdown-result p {
+            margin: 12px 0;
+            line-height: 1.6;
+            color: #2d3748;
+        }
+        
+        .markdown-result ul {
+            margin: 16px 0;
+            padding-left: 0;
+            list-style: none;
+        }
+        
+        .markdown-result ul li {
+            margin: 8px 0;
+            padding-left: 24px;
+            position: relative;
+            line-height: 1.6;
+        }
+        
+        .markdown-result ul li:before {
+            content: "•";
+            position: absolute;
+            left: 8px;
+            color: #667eea;
+            font-weight: bold;
+        }
+        
+        .markdown-result table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .markdown-result table th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .markdown-result table td {
+            padding: 12px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 14px;
+        }
+        
+        .markdown-result table tr:hover {
+            background: #f7fafc;
+        }
+        
+        .markdown-result table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .markdown-result strong {
+            font-weight: 600;
+            color: #2d3748;
+        }
+        }
+        
+        /* Quick Insert Buttons */
+        .quick-insert-btn {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 15px;
+            transition: all 0.2s ease;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        
+        .quick-insert-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+        }
+        
+        .quick-insert-section {
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+            border: 2px solid #86efac;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: rgba(102, 126, 234, 0.5);
+            border-radius: 5px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(102, 126, 234, 0.7);
+        }
+        
+        /* Loading animation */
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 3px solid white;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 16px 24px;
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            z-index: 9999;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .toast-success {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .toast-error {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        
+        .toast-info {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useCallback, useRef } = React;
+
+        // ============================================
+        // NOTE: Config moved to js/config.js (v8.7.0)
+        // Available globals: SUPABASE_URL, BACKEND_URL, supabase, DOCUMENT_TYPES, etc.
+        // ============================================
+
+        // ============================================
+        // TOAST NOTIFICATIONS
+        // ============================================
+        function ToastContainer({ toasts, removeToast }) {
+            return (
+                <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999 }}>
+                    {toasts.map(toast => (
+                        <div key={toast.id} className={`toast toast-${toast.type}`}>
+                            <div className="flex items-center justify-between">
+                                <span>{toast.message}</span>
+                                <button 
+                                    onClick={() => removeToast(toast.id)}
+                                    className="ml-4 text-white hover:text-gray-200"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+
+        // ============================================
+        // AUTH COMPONENT
+        // ============================================
+        function AuthScreen({ onLogin }) {
+            const [isLogin, setIsLogin] = useState(true);
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState('');
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError('');
+
+                try {
+                    let result;
+                    if (isLogin) {
+                        result = await supabase.auth.signInWithPassword({ email, password });
+                    } else {
+                        result = await supabase.auth.signUp({ email, password });
+                    }
+
+                    if (result.error) throw result.error;
+
+                    if (!isLogin) {
+                        setError('Konto skapat! Kolla din e-post för att verifiera kontot.');
+                    } else {
+                        onLogin(result.data.user);
+                    }
+                } catch (err) {
+                    setError(err.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="min-h-screen flex items-center justify-center p-4">
+                    <div className="glass rounded-2xl p-8 w-full max-w-md fade-in">
+                        <div className="text-center mb-8">
+                            <h1 className="text-4xl font-bold gradient-text mb-2">
+                                AI PMO Generator
+                            </h1>
+                            <p className="text-gray-600">v8.7 - Cloud Edition</p>
+                        </div>
+
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    E-post
+                                </label>
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                                    required
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Lösenord
+                                </label>
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                                    required
+                                />
+                            </div>
+
+                            {error && (
+                                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                                    {error}
+                                </div>
+                            )}
+
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full btn-gradient text-white py-3 rounded-lg font-medium"
+                            >
+                                {loading ? (
+                                    <div className="flex items-center justify-center">
+                                        <div className="spinner" style={{ width: 20, height: 20, borderWidth: 2 }}></div>
+                                    </div>
+                                ) : (
+                                    isLogin ? 'Logga in' : 'Skapa konto'
+                                )}
+                            </button>
+                        </form>
+
+                        <div className="mt-4 text-center">
+                            <button
+                                onClick={() => setIsLogin(!isLogin)}
+                                className="text-sm text-gray-600 hover:text-gray-800"
+                            >
+                                {isLogin ? 'Inget konto? Skapa ett här' : 'Har redan konto? Logga in'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // ============================================
+        // PROJECT SELECTOR
+        // ============================================
+        function ProjectSelector({ user, onProjectSelected, onLogout }) {
+            const [projects, setProjects] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [newProjectName, setNewProjectName] = useState('');
+            const [showNewProject, setShowNewProject] = useState(false);
+
+            useEffect(() => {
+                loadProjects();
+            }, []);
+
+            const loadProjects = async () => {
+                try {
+                    console.log('🔄 Laddar projekt från Supabase...');
+                    const { data, error } = await supabase
+                        .from('projects')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+
+                    if (error) {
+                        console.error('❌ Supabase error:', error);
+                        throw error;
+                    }
+                    
+                    console.log('✅ Projekt laddade:', data);
+                    console.log('📊 Antal projekt:', data?.length);
+                    data?.forEach((p, i) => {
+                        console.log(`📁 Projekt ${i+1}:`, {
+                            id: p.id,
+                            name: p.name,
+                            created_at: p.created_at,
+                            user_id: p.user_id
+                        });
+                    });
+                    setProjects(data || []);
+                } catch (err) {
+                    console.error('❌ Error loading projects:', err);
+                    alert('Kunde inte ladda projekt: ' + err.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const createProject = async () => {
+                if (!newProjectName.trim()) {
+                    alert('Ange ett projektnamn!');
+                    return;
+                }
+
+                try {
+                    console.log('🔄 Skapar projekt:', newProjectName);
+                    const { data, error } = await supabase
+                        .from('projects')
+                        .insert([{ name: newProjectName, user_id: user.id }])
+                        .select()
+                        .single();
+
+                    if (error) {
+                        console.error('❌ Supabase error:', error);
+                        throw error;
+                    }
+
+                    console.log('✅ Projekt skapat:', data);
+                    setProjects([data, ...projects]);
+                    setNewProjectName('');
+                    setShowNewProject(false);
+                    alert('✅ Projekt skapat: ' + data.name);
+                } catch (err) {
+                    console.error('❌ Error creating project:', err);
+                    alert('Kunde inte skapa projekt: ' + err.message);
+                }
+            };
+
+            const deleteProject = async (projectId) => {
+                if (!confirm('Är du säker på att du vill radera detta projekt?')) return;
+
+                try {
+                    const { error } = await supabase
+                        .from('projects')
+                        .delete()
+                        .eq('id', projectId);
+
+                    if (error) throw error;
+
+                    setProjects(projects.filter(p => p.id !== projectId));
+                } catch (err) {
+                    console.error('Error deleting project:', err);
+                    alert('Kunde inte radera projekt: ' + err.message);
+                }
+            };
+
+            if (loading) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center">
+                        <div className="spinner"></div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen p-4 md:p-8">
+                    <div className="max-w-4xl mx-auto">
+                        <div className="glass rounded-2xl p-6 md:p-8 fade-in">
+                            <div className="flex justify-between items-center mb-6">
+                                <div className="flex-1 min-w-0">
+                                    <h1 className="text-2xl md:text-3xl font-bold gradient-text truncate">Mina Projekt</h1>
+                                    <p className="text-gray-600 mt-1 text-sm truncate">{user.email}</p>
+                                </div>
+                                <button
+                                    onClick={onLogout}
+                                    className="ml-2 px-2 md:px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-xs md:text-base flex-shrink-0"
+                                    title="Logga ut"
+                                >
+                                    <span className="md:hidden">↪</span>
+                                    <span className="hidden md:inline">Logga ut</span>
+                                </button>
+                            </div>
+
+                            {showNewProject ? (
+                                <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                                    <h3 className="font-semibold mb-3">Skapa nytt projekt</h3>
+                                    <div className="flex flex-col sm:flex-row gap-2">
+                                        <input
+                                            type="text"
+                                            value={newProjectName}
+                                            onChange={(e) => setNewProjectName(e.target.value)}
+                                            placeholder="Projektnamn..."
+                                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg w-full"
+                                            onKeyPress={(e) => e.key === 'Enter' && createProject()}
+                                        />
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={createProject}
+                                                className="btn-gradient text-white px-6 py-2 rounded-lg flex-1 sm:flex-none"
+                                            >
+                                                Skapa
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setShowNewProject(false);
+                                                    setNewProjectName('');
+                                                }}
+                                                className="px-4 py-2 bg-gray-200 rounded-lg flex-1 sm:flex-none"
+                                            >
+                                                Avbryt
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => setShowNewProject(true)}
+                                    className="w-full mb-6 p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-all"
+                                >
+                                    <span className="text-gray-600 font-medium">+ Skapa nytt projekt</span>
+                                </button>
+                            )}
+
+                            {projects.length === 0 ? (
+                                <div className="text-center py-12 text-gray-500">
+                                    <p>Inga projekt än. Skapa ditt första projekt för att komma igång!</p>
+                                </div>
+                            ) : (
+                                <div className="grid gap-4">
+                                    {projects.map(project => (
+                                        <div
+                                            key={project.id}
+                                            className="card glass-dark p-6 rounded-xl"
+                                        >
+                                            <div className="flex justify-between items-start">
+                                                <div 
+                                                    onClick={() => onProjectSelected(project)}
+                                                    className="flex-1 cursor-pointer"
+                                                >
+                                                    <h3 className="text-xl font-semibold text-white mb-2" style={{textShadow: '0 2px 4px rgba(0,0,0,0.8)'}}>
+                                                        {project.name || 'Namnlöst projekt'}
+                                                    </h3>
+                                                    <p className="text-gray-300 text-sm">
+                                                        Skapad: {new Date(project.created_at).toLocaleDateString('sv-SE')}
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        deleteProject(project.id);
+                                                    }}
+                                                    className="ml-4 px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-medium"
+                                                >
+                                                    🗑️ Radera
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // ============================================
+        // MAIN APP COMPONENT
+        // ============================================
+        function App() {
+            const [user, setUser] = useState(null);
+            const [currentProject, setCurrentProject] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [toasts, setToasts] = useState([]);
+            // API-nyckel hanteras av backend - ingen state behövs
+
+            useEffect(() => {
+                checkUser();
+                
+                const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+                    setUser(session?.user || null);
+                });
+
+                return () => {
+                    authListener?.subscription?.unsubscribe();
+                };
+            }, []);
+
+            const checkUser = async () => {
+                try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    setUser(session?.user || null);
+                } catch (err) {
+                    console.error('Error checking auth:', err);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const handleLogout = async () => {
+                await supabase.auth.signOut();
+                setUser(null);
+                setCurrentProject(null);
+            };
+
+            const addToast = (message, type = 'success') => {
+                const id = Date.now();
+                setToasts(prev => [...prev, { id, message, type }]);
+                setTimeout(() => removeToast(id), 5000);
+            };
+
+            const removeToast = (id) => {
+                setToasts(prev => prev.filter(t => t.id !== id));
+            };
+
+            if (loading) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center">
+                        <div className="spinner"></div>
+                    </div>
+                );
+            }
+
+            if (!user) {
+                return <AuthScreen onLogin={setUser} />;
+            }
+
+            if (!currentProject) {
+                return (
+                    <>
+                        <ProjectSelector 
+                            user={user} 
+                            onProjectSelected={setCurrentProject}
+                            onLogout={handleLogout}
+                        />
+                        <ToastContainer toasts={toasts} removeToast={removeToast} />
+                    </>
+                );
+            }
+
+            return (
+                <>
+                    <WorkspaceScreen 
+                        user={user}
+                        project={currentProject}
+                        onBackToProjects={() => setCurrentProject(null)}
+                        onLogout={handleLogout}
+                        addToast={addToast}
+                    />
+                    <ToastContainer toasts={toasts} removeToast={removeToast} />
+                </>
+            );
+        }
+
+        // ============================================
+        // WORKSPACE SCREEN
+        // ============================================
+        function WorkspaceScreen({ user, project, onBackToProjects, onLogout, addToast }) {
+            const [mode, setMode] = useState('generate'); // 'generate' or 'analyze'
+            const [docType, setDocType] = useState('weekly');
+            const [analysisType, setAnalysisType] = useState('pmo');
+            const [language, setLanguage] = useState('svenska');
+            const [rawData, setRawData] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [result, setResult] = useState(null);
+            const [error, setError] = useState('');
+            const [rawDataTitle, setRawDataTitle] = useState('');
+            const [showSavedRawData, setShowSavedRawData] = useState(false);
+            const [savedRawDataEntries, setSavedRawDataEntries] = useState([]);
+            
+            // Manual Anonymization states (NEW v8.2.0)
+            const [showAnonymization, setShowAnonymization] = useState(false);
+            const [anonymizationEntries, setAnonymizationEntries] = useState([]);
+            const [showAnonModal, setShowAnonModal] = useState(false);
+            const [anonModalType, setAnonModalType] = useState('person'); // 'person', 'organization', 'location', 'identifier'
+            const [anonModalMode, setAnonModalMode] = useState('add'); // 'add' or 'edit'
+            const [editingAnonEntry, setEditingAnonEntry] = useState(null);
+            const [anonOriginalValue, setAnonOriginalValue] = useState('');
+            
+            // API-nyckel hanteras av backend
+            const textareaRef = useRef(null);
+            
+            // Project Memory states
+            const [showProjectMemory, setShowProjectMemory] = useState(false);
+            const [projectMemory, setProjectMemory] = useState([]);
+            const [showMemoryModal, setShowMemoryModal] = useState(false);
+            const [memoryModalType, setMemoryModalType] = useState('stakeholder');
+            const [memoryModalMode, setMemoryModalMode] = useState('add'); // 'add' or 'edit'
+            const [editingMemory, setEditingMemory] = useState(null);
+            const [memoryKey, setMemoryKey] = useState('');
+            const [memoryValue, setMemoryValue] = useState('');
+
+            // Load project data on mount
+            useEffect(() => {
+                loadProjectData();
+                loadProjectMemory();
+                loadAnonymizationEntries();
+                
+                // Setup realtime subscription för raw_data_entries
+                const channel = supabase
+                    .channel(`raw_data_${project.id}`)
+                    .on(
+                        'postgres_changes',
+                        {
+                            event: '*',
+                            schema: 'public',
+                            table: 'raw_data_entries',
+                            filter: `project_id=eq.${project.id}`
+                        },
+                        (payload) => {
+                            console.log('🔄 Realtime update detected:', payload);
+                            // Reload data when changes detected
+                            loadProjectData();
+                        }
+                    )
+                    .subscribe();
+                
+                // Setup realtime subscription för project_memory
+                const memoryChannel = supabase
+                    .channel(`project_memory_${project.id}`)
+                    .on(
+                        'postgres_changes',
+                        {
+                            event: '*',
+                            schema: 'public',
+                            table: 'project_memory',
+                            filter: `project_id=eq.${project.id}`
+                        },
+                        (payload) => {
+                            console.log('🔄 Project memory update detected:', payload);
+                            loadProjectMemory();
+                        }
+                    )
+                    .subscribe();
+                
+                // Setup realtime subscription för anonymization_entries
+                const anonChannel = supabase
+                    .channel(`anonymization_${project.id}`)
+                    .on(
+                        'postgres_changes',
+                        {
+                            event: '*',
+                            schema: 'public',
+                            table: 'anonymization_entries',
+                            filter: `project_id=eq.${project.id}`
+                        },
+                        (payload) => {
+                            console.log('🔄 Anonymization entries update detected:', payload);
+                            loadAnonymizationEntries();
+                        }
+                    )
+                    .subscribe();
+                
+                // Cleanup subscription on unmount
+                return () => {
+                    supabase.removeChannel(channel);
+                    supabase.removeChannel(memoryChannel);
+                    supabase.removeChannel(anonChannel);
+                };
+            }, [project.id]);
+
+            // Auto-save rawData to localStorage
+            useEffect(() => {
+                const timer = setTimeout(() => {
+                    if (rawData.trim()) {
+                        localStorage.setItem(`pmo_autosave_rawdata_${project.id}`, rawData);
+                        localStorage.setItem(`pmo_autosave_timestamp_${project.id}`, new Date().toISOString());
+                    }
+                }, 3000);
+                
+                return () => clearTimeout(timer);
+            }, [rawData, project.id]);
+
+            const loadProjectData = async () => {
+                try {
+                    // Load from localStorage first
+                    const saved = localStorage.getItem(`pmo_autosave_rawdata_${project.id}`);
+                    if (saved) {
+                        setRawData(saved);
+                    }
+
+                    // Load raw data entries from Supabase
+                    try {
+                        const { data: rawDataEntries, error: rawError } = await supabase
+                            .from('raw_data_entries')
+                            .select('id, project_id, content, title, created_at')
+                            .eq('project_id', project.id)
+                            .order('created_at', { ascending: false });
+
+                        if (rawError) {
+                            console.warn('⚠️ Kunde inte ladda rådata:', rawError);
+                        } else {
+                            console.log('✅ Rådata laddad:', rawDataEntries?.length, 'entries');
+                            setSavedRawDataEntries(rawDataEntries || []);
+                        }
+                    } catch (err) {
+                        console.warn('⚠️ Raw data load error (ignoreras):', err);
+                    }
+
+                } catch (err) {
+                    console.error('Error loading project data:', err);
+                    // Visa inte toast för detta - användaren kan ändå använda appen
+                }
+            };
+
+            
+            // ============================================
+            // MANUAL ANONYMIZATION FUNCTIONS (v8.2.0)
+            // ============================================
+            
+            const loadAnonymizationEntries = async () => {
+                try {
+                    const { data, error } = await supabase
+                        .from('anonymization_entries')
+                        .select('*')
+                        .eq('project_id', project.id)
+                        .order('created_at', { ascending: true });
+                    
+                    if (error) {
+                        console.warn('⚠️ Kunde inte ladda anonymization entries:', error);
+                    } else {
+                        console.log('✅ Anonymization entries laddade:', data?.length, 'entries');
+                        setAnonymizationEntries(data || []);
+                    }
+                } catch (err) {
+                    console.error('Error loading anonymization entries:', err);
+                }
+            };
+            
+            // NOTE: generateAnonymizationCode moved to security.js (v8.7.0)
+            
+            const openAnonModal = (type, mode = 'add', entry = null) => {
+                setAnonModalType(type);
+                setAnonModalMode(mode);
+                if (mode === 'edit' && entry) {
+                    setEditingAnonEntry(entry);
+                    setAnonOriginalValue(entry.original_value);
+                } else {
+                    setEditingAnonEntry(null);
+                    setAnonOriginalValue('');
+                }
+                setShowAnonModal(true);
+            };
+            
+            const closeAnonModal = () => {
+                setShowAnonModal(false);
+                setAnonOriginalValue('');
+                setEditingAnonEntry(null);
+            };
+            
+            const saveAnonymizationEntry = async () => {
+                if (!anonOriginalValue.trim()) {
+                    addToast('Värde kan inte vara tomt', 'error');
+                    return;
+                }
+                
+                try {
+                    if (anonModalMode === 'add') {
+                        // Generate code
+                        const existingCodes = anonymizationEntries.map(e => e.anonymized_code);
+                        const code = window.SecurityFunctions.generateAnonymizationCode(anonModalType, existingCodes);
+                        
+                        const { error } = await supabase
+                            .from('anonymization_entries')
+                            .insert([{
+                                project_id: project.id,
+                                entry_type: anonModalType,
+                                original_value: anonOriginalValue.trim(),
+                                anonymized_code: code
+                            }]);
+                        
+                        if (error) throw error;
+                        addToast('Tillagt i anonymiseringslista!', 'success');
+                    } else {
+                        const { error } = await supabase
+                            .from('anonymization_entries')
+                            .update({
+                                original_value: anonOriginalValue.trim(),
+                                updated_at: new Date().toISOString()
+                            })
+                            .eq('id', editingAnonEntry.id);
+                        
+                        if (error) throw error;
+                        addToast('Anonymiseringslista uppdaterad!', 'success');
+                    }
+                    
+                    closeAnonModal();
+                    loadAnonymizationEntries();
+                } catch (err) {
+                    console.error('Error saving anonymization entry:', err);
+                    addToast('Kunde inte spara anonymisering', 'error');
+                }
+            };
+            
+            const deleteAnonymizationEntry = async (entryId) => {
+                if (!confirm('Är du säker på att du vill radera denna anonymisering?')) {
+                    return;
+                }
+                
+                try {
+                    const { error } = await supabase
+                        .from('anonymization_entries')
+                        .delete()
+                        .eq('id', entryId);
+                    
+                    if (error) throw error;
+                    addToast('Raderat från anonymiseringslista!', 'success');
+                    loadAnonymizationEntries();
+                } catch (err) {
+                    console.error('Error deleting anonymization entry:', err);
+                    addToast('Kunde inte radera anonymisering', 'error');
+                }
+            };
+            
+            const getAnonymizationByType = (type) => {
+                return anonymizationEntries.filter(e => e.entry_type === type);
+            };
+            
+            // NOTE: replaceWithAnonymizationCodes moved to security.js (v8.7.0)
+            
+            // NOTE: restoreFromAnonymizationCodes moved to security.js (v8.7.0)
+            
+            // ============================================
+            // PROJECT MEMORY FUNCTIONS
+            // ============================================
+            
+            const loadProjectMemory = async () => {
+                try {
+                    const { data, error } = await supabase
+                        .from('project_memory')
+                        .select('*')
+                        .eq('project_id', project.id)
+                        .order('created_at', { ascending: true });
+                    
+                    if (error) {
+                        console.warn('⚠️ Kunde inte ladda projektminne:', error);
+                    } else {
+                        console.log('✅ Projektminne laddat:', data?.length, 'entries');
+                        setProjectMemory(data || []);
+                    }
+                } catch (err) {
+                    console.error('Error loading project memory:', err);
+                }
+            };
+            
+            const openMemoryModal = (type, mode = 'add', memory = null) => {
+                setMemoryModalType(type);
+                setMemoryModalMode(mode);
+                if (mode === 'edit' && memory) {
+                    setEditingMemory(memory);
+                    setMemoryKey(memory.key || '');
+                    setMemoryValue(memory.value || '');
+                } else {
+                    setEditingMemory(null);
+                    setMemoryKey('');
+                    setMemoryValue('');
+                }
+                setShowMemoryModal(true);
+            };
+            
+            const closeMemoryModal = () => {
+                setShowMemoryModal(false);
+                setMemoryKey('');
+                setMemoryValue('');
+                setEditingMemory(null);
+            };
+            
+            const saveMemory = async () => {
+                if (!memoryValue.trim()) {
+                    addToast('Värde kan inte vara tomt', 'error');
+                    return;
+                }
+                
+                if (memoryModalType === 'stakeholder' && !memoryKey.trim()) {
+                    addToast('Namn kan inte vara tomt', 'error');
+                    return;
+                }
+                
+                try {
+                    if (memoryModalMode === 'add') {
+                        const { error } = await supabase
+                            .from('project_memory')
+                            .insert([{
+                                project_id: project.id,
+                                memory_type: memoryModalType,
+                                key: memoryModalType === 'stakeholder' ? memoryKey.trim() : null,
+                                value: memoryValue.trim()
+                            }]);
+                        
+                        if (error) throw error;
+                        addToast('Tillagt i projektminne!', 'success');
+                    } else {
+                        const { error } = await supabase
+                            .from('project_memory')
+                            .update({
+                                key: memoryModalType === 'stakeholder' ? memoryKey.trim() : null,
+                                value: memoryValue.trim(),
+                                updated_at: new Date().toISOString()
+                            })
+                            .eq('id', editingMemory.id);
+                        
+                        if (error) throw error;
+                        addToast('Projektminne uppdaterat!', 'success');
+                    }
+                    
+                    closeMemoryModal();
+                    loadProjectMemory();
+                } catch (err) {
+                    console.error('Error saving memory:', err);
+                    addToast('Kunde inte spara projektminne', 'error');
+                }
+            };
+            
+            const deleteMemory = async (memoryId) => {
+                if (!confirm('Är du säker på att du vill radera detta från projektminnet?')) {
+                    return;
+                }
+                
+                try {
+                    const { error } = await supabase
+                        .from('project_memory')
+                        .delete()
+                        .eq('id', memoryId);
+                    
+                    if (error) throw error;
+                    addToast('Raderat från projektminne!', 'success');
+                    loadProjectMemory();
+                } catch (err) {
+                    console.error('Error deleting memory:', err);
+                    addToast('Kunde inte radera projektminne', 'error');
+                }
+            };
+            
+            const getMemoriesByType = (type) => {
+                return projectMemory.filter(m => m.memory_type === type);
+            };
+            
+            const buildProjectMemoryContext = (memoryData) => {
+                // NOTE: This function is not used in v8.3.0+ (we use buildProjectMemoryMapping instead)
+                // Kept for backwards compatibility
+                
+                console.log('🔍 DEBUG Project Memory (legacy function):');
+                console.log('  - memoryData received:', memoryData);
+                console.log('  - memoryData.length:', memoryData?.length || 0);
+                
+                if (!memoryData || memoryData.length === 0) {
+                    console.log('⚠️ No project memory data available');
+                    return '';
+                }
+                
+                // Filter by type directly from memoryData
+                const stakeholders = memoryData.filter(m => m.memory_type === 'stakeholder');
+                const systems = memoryData.filter(m => m.memory_type === 'system');
+                const goals = memoryData.filter(m => m.memory_type === 'goal');
+                const decisions = memoryData.filter(m => m.memory_type === 'decision');
+                
+                console.log('  - stakeholders:', stakeholders.length);
+                console.log('  - systems:', systems.length);
+                console.log('  - goals:', goals.length);
+                console.log('  - decisions:', decisions.length);
+                
+                let context = '\n\n=== PROJEKTKONTEXT ===\n';
+                
+                if (stakeholders.length > 0) {
+                    context += '\nSTAKEHOLDERS:\n';
+                    stakeholders.forEach(s => {
+                        context += `- ${s.key}: ${s.value}\n`;
+                    });
+                }
+                
+                if (systems.length > 0) {
+                    context += '\nSYSTEM/KOMPONENTER:\n';
+                    systems.forEach(s => {
+                        context += `- ${s.value}\n`;
+                    });
+                }
+                
+                if (goals.length > 0) {
+                    context += '\nPROJEKTMÅL:\n';
+                    goals.forEach(g => {
+                        context += `- ${g.value}\n`;
+                    });
+                }
+                
+                if (decisions.length > 0) {
+                    context += '\nVIKTIGA BESLUT:\n';
+                    decisions.forEach(d => {
+                        context += `- ${d.value}\n`;
+                    });
+                }
+                
+                context += '\nVIKTIGT: Använd EXAKT dessa namn, termer och beskrivningar i dokumentet för konsistens!\n';
+                context += '======================\n\n';
+                
+                console.log('✅ Project memory context built:', context);
+                return context;
+            };
+            
+            // ============================================
+            // PROJECT MEMORY CODE SYSTEM (like anonymization)
+            // ============================================
+            
+            const buildProjectMemoryMapping = (memoryData) => {
+                if (!memoryData || memoryData.length === 0) {
+                    return { mapping: '', codeMap: {} };
+                }
+                
+                const stakeholders = memoryData.filter(m => m.memory_type === 'stakeholder');
+                const systems = memoryData.filter(m => m.memory_type === 'system');
+                const goals = memoryData.filter(m => m.memory_type === 'goal');
+                const decisions = memoryData.filter(m => m.memory_type === 'decision');
+                
+                let mappingText = '\n\n=== PROJEKTMINNE MAPPNING ===\n';
+                const codeMap = {};
+                
+                // Stakeholders
+                if (stakeholders.length > 0) {
+                    mappingText += '\nPERSONER (använd ALLTID dessa koder):\n';
+                    stakeholders.forEach((s, idx) => {
+                        const code = `{{STAKE_${idx + 1}}}`;
+                        const fullName = `${s.key} (${s.value})`;
+                        codeMap[code] = fullName;
+                        codeMap[s.key] = code; // For replacement
+                        mappingText += `${code} = ${fullName}\n`;
+                    });
+                }
+                
+                // Systems
+                if (systems.length > 0) {
+                    mappingText += '\nSYSTEM (använd ALLTID dessa koder):\n';
+                    systems.forEach((s, idx) => {
+                        const code = `{{SYS_${idx + 1}}}`;
+                        // Extract system name (before any parenthesis)
+                        const systemName = s.value.split('(')[0].trim();
+                        codeMap[code] = s.value;
+                        codeMap[systemName.toLowerCase()] = code; // For replacement
+                        mappingText += `${code} = ${s.value}\n`;
+                    });
+                }
+                
+                // Goals (for context, not replaced)
+                if (goals.length > 0) {
+                    mappingText += '\nPROJEKTMÅL:\n';
+                    goals.forEach(g => {
+                        mappingText += `- ${g.value}\n`;
+                    });
+                }
+                
+                // Decisions (for context, not replaced)
+                if (decisions.length > 0) {
+                    mappingText += '\nVIKTIGA BESLUT:\n';
+                    decisions.forEach(d => {
+                        mappingText += `- ${d.value}\n`;
+                    });
+                }
+                
+                mappingText += '\nVIKTIGT: \n';
+                mappingText += '- Använd EXAKT koderna {{STAKE_X}} och {{SYS_X}} som de står här\n';
+                mappingText += '- Om du ser PERSON_X, ORG_X, LOC_X eller ID_X i texten: använd dem UTAN {{}}\n';
+                mappingText += '- Lägg ALDRIG till {{}} runt PERSON_X, ORG_X, LOC_X eller ID_X\n';
+                mappingText += '- Exempel: "PERSON_1 arbetar" är KORREKT, inte "{{PERSON_1}} arbetar"\n';
+                mappingText += '================================\n\n';
+                
+                console.log('🔑 Project memory mapping built:', mappingText);
+                console.log('🔑 Code map:', codeMap);
+                
+                return { mapping: mappingText, codeMap };
+            };
+            
+            const replaceNamesWithCodes = (text, codeMap) => {
+                if (!text || !codeMap) return text;
+                
+                let processedText = text;
+                
+                // Sort by length (longest first) to avoid partial matches
+                const entries = Object.entries(codeMap)
+                    .filter(([key]) => !key.startsWith('{{')) // Only original names, not codes
+                    .sort((a, b) => b[0].length - a[0].length);
+                
+                entries.forEach(([name, code]) => {
+                    // Skip if name is an anonymization code pattern
+                    if (/^(PERSON|ORG|LOC|ID)_\d+$/.test(name)) {
+                        console.log(`  ⚠️ Skipping anonymization code: ${name}`);
+                        return;
+                    }
+                    
+                    // Escape special regex characters
+                    const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    
+                    // Case-insensitive replacement with word boundaries
+                    const regex = new RegExp(`\\b${escapedName}\\b`, 'gi');
+                    
+                    const beforeReplace = processedText;
+                    processedText = processedText.replace(regex, code);
+                    
+                    if (beforeReplace !== processedText) {
+                        const matches = beforeReplace.match(regex);
+                        console.log(`  ✅ Project memory: "${name}" → ${code} (${matches?.length || 0} times)`);
+                    }
+                });
+                
+                console.log('📝 Text before project memory codes:', text.substring(0, 100));
+                console.log('📝 Text after project memory codes:', processedText.substring(0, 100));
+                
+                return processedText;
+            };
+            
+            const replaceCodesWithInfo = (text, codeMap) => {
+                if (!text || !codeMap) return text;
+                
+                let processedText = text;
+                
+                // Replace codes with full info
+                Object.entries(codeMap)
+                    .filter(([key]) => key.startsWith('{{')) // Only codes
+                    .forEach(([code, fullInfo]) => {
+                        const regex = new RegExp(code.replace(/[{}]/g, '\\$&'), 'g');
+                        processedText = processedText.replace(regex, fullInfo);
+                    });
+                
+                console.log('📝 Text before replacement:', text.substring(0, 100));
+                console.log('📝 Text after replacement:', processedText.substring(0, 100));
+                
+                return processedText;
+            };
+
+            const saveRawDataEntry = async () => {
+                if (!rawData.trim()) {
+                    alert('Skriv rådata först!');
+                    return;
+                }
+
+                try {
+                    console.log('💾 Sparar rådata...');
+                    
+                    // Använd title om angiven, annars generera från datum
+                    const titleToSave = rawDataTitle.trim() || `Rådata ${new Date().toLocaleDateString('sv-SE')}`;
+                    
+                    // DUAL STORAGE SECURITY:
+                    // 1. Extract protected blocks
+                    const { cleanedData, blocks: protectedBlocks } = extractProtectedBlocks(rawData);
+                    
+                    console.log('🔒 Dual storage security:');
+                    console.log(`  - Supabase: Storing WITHOUT protected blocks (${protectedBlocks.length} blocks removed)`);
+                    console.log(`  - localStorage: Storing WITH protected blocks (full data)`);
+                    
+                    // 2. Save to Supabase WITHOUT protected content
+                    const { data: savedData, error } = await supabase
+                        .from('raw_data_entries')
+                        .insert({
+                            project_id: project.id,
+                            content: cleanedData, // WITHOUT protected blocks
+                            title: titleToSave
+                        })
+                        .select()
+                        .single();
+
+                    if (error) {
+                        console.error('Supabase error:', error);
+                        throw error;
+                    }
+                    
+                    // 3. Save to localStorage WITH protected content (full data)
+                    if (savedData) {
+                        localStorage.setItem(`rawdata_full_${savedData.id}`, rawData);
+                        if (protectedBlocks.length > 0) {
+                            localStorage.setItem(`protected_blocks_${savedData.id}`, JSON.stringify(protectedBlocks));
+                        }
+                        console.log('✅ Full data with protected blocks saved to localStorage');
+                    }
+
+                    console.log('✅ Rådata sparad!');
+                    addToast('Rådata sparad (skyddad text endast lokalt)!', 'success');
+                    setRawDataTitle('');
+                    await loadProjectData();
+                } catch (err) {
+                    console.error('Error saving raw data:', err);
+                    addToast('Kunde inte spara rådata: ' + err.message, 'error');
+                }
+            };
+
+            const deleteRawDataEntry = async (entryId) => {
+                if (!confirm('Är du säker på att du vill radera denna rådata?')) return;
+
+                try {
+                    const { error } = await supabase
+                        .from('raw_data_entries')
+                        .delete()
+                        .eq('id', entryId);
+
+                    if (error) throw error;
+                    
+                    // Also delete from localStorage
+                    localStorage.removeItem(`rawdata_full_${entryId}`);
+                    localStorage.removeItem(`protected_blocks_${entryId}`);
+                    console.log('🗑️ Deleted from both Supabase and localStorage');
+
+                    addToast('Rådata raderad!', 'success');
+                    await loadProjectData();
+                } catch (err) {
+                    console.error('Error deleting raw data:', err);
+                    addToast('Kunde inte radera rådata', 'error');
+                }
+            };
+
+            const loadSavedRawData = (entry) => {
+                if (rawData && !confirm('Detta kommer ersätta befintlig rådata. Fortsätt?')) {
+                    return;
+                }
+                
+                // DUAL STORAGE SECURITY:
+                // 1. Try localStorage first (has protected blocks)
+                const localFullData = localStorage.getItem(`rawdata_full_${entry.id}`);
+                
+                if (localFullData) {
+                    console.log('✅ Loading from localStorage (WITH protected blocks)');
+                    setRawData(localFullData);
+                    addToast('Rådata laddad (med skyddad text)!', 'success');
+                } else {
+                    console.log('⚠️ Loading from Supabase (WITHOUT protected blocks)');
+                    console.log('   Protected blocks were never uploaded or have been cleared from cache.');
+                    setRawData(entry.content); // Without protected blocks
+                    addToast('Rådata laddad (utan skyddad text - fanns ej lokalt)', 'warning');
+                }
+                
+                setShowSavedRawData(false);
+            };
+
+            // Quick Insert Functions
+            const insertAtCursor = (text) => {
+                const textarea = textareaRef.current;
+                if (!textarea) return;
+
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+                const currentValue = rawData;
+                
+                const newValue = currentValue.substring(0, start) + text + currentValue.substring(end);
+                setRawData(newValue);
+                
+                setTimeout(() => {
+                    const insertedText = text;
+                    const firstNewline = insertedText.indexOf('\n') + 1;
+                    const secondNewline = insertedText.indexOf('\n', firstNewline) + 1;
+                    const newCursorPos = start + secondNewline;
+                    textarea.focus();
+                    textarea.setSelectionRange(newCursorPos, newCursorPos);
+                }, 0);
+            };
+
+            const quickInsertDate = (dateOffset = 0) => {
+                const date = new Date();
+                date.setDate(date.getDate() + dateOffset);
+                const dateStr = date.toISOString().split('T')[0];
+                const template = `\n=${dateStr}=\n\n===\n`;
+                insertAtCursor(template);
+            };
+
+            const quickInsertCustomDate = () => {
+                const dateStr = prompt('Ange datum (YYYY-MM-DD):');
+                if (dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+                    const template = `\n=${dateStr}=\n\n===\n`;
+                    insertAtCursor(template);
+                } else if (dateStr) {
+                    alert('Ogiltigt datumformat. Använd YYYY-MM-DD');
+                }
+            };
+
+            const quickInsertMeeting = () => {
+                const template = `\n=MÖTE=\n\n===\n`;
+                insertAtCursor(template);
+            };
+            
+            const quickInsertProtected = () => {
+                const template = `\n[[PROTECTED]]\nSkriv skyddad text här (kommer INTE skickas till AI)\n[[/PROTECTED]]\n`;
+                insertAtCursor(template);
+            };
+            
+            // ============================================
+            // PROTECTED BLOCKS SYSTEM
+            // ============================================
+            
+            // Protected blocks functions with full fallback implementation
+            const extractProtectedBlocks = (rawData) => {
+                // Try to use security.js version first
+                if (window.SecurityFunctions && window.SecurityFunctions.extractProtectedBlocks) {
+                    return window.SecurityFunctions.extractProtectedBlocks(rawData);
+                }
+                
+                // Fallback implementation (FIXED version from v8.7.14)
+                console.warn('⚠️ Using fallback extractProtectedBlocks (security.js not loaded)');
+                
+                const blocks = [];
+                const regex = /\[\[PROTECTED\]\]([\s\S]*?)\[\[\/PROTECTED\]\]/g;
+                
+                let match;
+                let counter = 1;
+                while ((match = regex.exec(rawData)) !== null) {
+                    blocks.push({
+                        id: `BLOCK_${counter}`,
+                        content: match[1].trim(),
+                        placeholder: `{{PROTECTED_BLOCK_${counter}}}`
+                    });
+                    counter++;
+                }
+                
+                // Replace protected blocks with placeholders using single regex replace
+                let cleanedData = rawData;
+                const replaceRegex = /\[\[PROTECTED\]\]([\s\S]*?)\[\[\/PROTECTED\]\]/g;
+                
+                let replaceCounter = 1;
+                cleanedData = cleanedData.replace(replaceRegex, (match, content) => {
+                    return `\n{{PROTECTED_BLOCK_${replaceCounter++}}}\n`;
+                });
+                
+                console.log('🔒 Protected blocks extracted:', blocks.length);
+                blocks.forEach(block => {
+                    console.log(`  - ${block.id}: ${block.content.substring(0, 50)}...`);
+                });
+                
+                return { cleanedData, blocks };
+            };
+            
+            const mergeProtectedBlocks = (aiContent, blocks) => {
+                // Try to use security.js version first
+                if (window.SecurityFunctions && window.SecurityFunctions.mergeProtectedBlocks) {
+                    return window.SecurityFunctions.mergeProtectedBlocks(aiContent, blocks);
+                }
+                
+                // Fallback implementation
+                console.warn('⚠️ Using fallback mergeProtectedBlocks (security.js not loaded)');
+                
+                if (!blocks || blocks.length === 0) return aiContent;
+                
+                let result = aiContent;
+                
+                blocks.forEach(block => {
+                    // Use regex with global flag to replace ALL occurrences
+                    const escapedPlaceholder = block.placeholder.replace(/[{}]/g, '\\$&');
+                    const regex = new RegExp(escapedPlaceholder, 'g');
+                    result = result.replace(regex, block.content);
+                });
+                
+                console.log('🔓 Protected blocks merged:', blocks.length);
+                
+                return result;
+            };
+            
+
+            const handleGenerate = async () => {
+                if (!rawData.trim()) {
+                    setError('Vänligen skriv eller klistra in rådata');
+                    return;
+                }
+
+                setLoading(true);
+                setError('');
+                setResult(null);
+
+                try {
+                    let dataToUse = rawData;
+                    
+                    console.log('🔵 === PROTECTED BLOCKS DEBUGGING ===');
+                    console.log('📝 Original rawData length:', rawData.length);
+                    console.log('📝 Contains [[PROTECTED]]:', rawData.includes('[[PROTECTED]]'));
+                    
+                    // STEP 1: Extract protected blocks FIRST (before any processing)
+                    const { cleanedData, blocks: protectedBlocks } = extractProtectedBlocks(dataToUse);
+                    dataToUse = cleanedData;
+                    
+                    console.log('📝 After extraction - cleanedData length:', cleanedData.length);
+                    console.log('📝 Protected blocks found:', protectedBlocks.length);
+                    if (protectedBlocks.length > 0) {
+                        console.log('📝 Placeholders in cleanedData:', 
+                            cleanedData.includes('{{PROTECTED_BLOCK_1}}'));
+                    }
+                    console.log('🔵 === END DEBUGGING ===\n');
+
+                    // STEP 2: Apply manual anonymization (ALWAYS, if entries exist)
+                    if (anonymizationEntries.length > 0) {
+                        console.log('🔒 Applying manual anonymization...');
+                        dataToUse = window.SecurityFunctions.replaceWithAnonymizationCodes(dataToUse, anonymizationEntries);
+                        
+                        // ALSO apply to protected blocks content!
+                        protectedBlocks.forEach(block => {
+                            block.content = window.SecurityFunctions.replaceWithAnonymizationCodes(block.content, anonymizationEntries);
+                        });
+                        
+                        console.log('✅ Manual anonymization applied (including protected blocks)');
+                    }
+                    
+                    // STEP 3: Apply project memory code replacement (ALWAYS if entries exist)
+                    let projectMemoryCodeMap = {};
+                    let projectMemoryMapping = '';
+                    
+                    if (projectMemory.length > 0) {
+                        console.log('🔑 Applying project memory code system...');
+                        
+                        // Build mapping and code map
+                        const memoryResult = window.SecurityFunctions.buildProjectMemoryMapping(projectMemory);
+                        projectMemoryMapping = memoryResult.mapping;
+                        projectMemoryCodeMap = memoryResult.codeMap;
+                        
+                        // Replace names in rådata with codes
+                        dataToUse = window.SecurityFunctions.replaceNamesWithCodes(dataToUse, projectMemoryCodeMap);
+                        
+                        // ALSO apply to protected blocks content!
+                        protectedBlocks.forEach(block => {
+                            block.content = window.SecurityFunctions.replaceNamesWithCodes(block.content, projectMemoryCodeMap);
+                        });
+                        
+                        console.log('✅ Project memory codes applied (including protected blocks)');
+                    } else {
+                        console.log('ℹ️ No project memory entries - skipping');
+                    }
+
+                    const masterPrompt = language === 'svenska' ? SWEDISH_MASTER_PROMPT : ENGLISH_MASTER_PROMPT;
+                    const docTypeName = DOCUMENT_TYPES.find(d => d.id === docType)?.name || docType;
+                    const docTypeNameLocal = language === 'svenska' 
+                        ? DOCUMENT_TYPES.find(d => d.id === docType)?.nameSv 
+                        : DOCUMENT_TYPES.find(d => d.id === docType)?.name;
+                    
+                    // Build system prompt
+                    let systemPrompt = `${MASTER_FORMAT}\n\n${masterPrompt}\n\n${WORD_FORMAT}`;
+                    
+                    const projectContext = `\n\nPROJEKT-KONTEXT: Detta dokument är för projekt "${project.name}". Ignorera information om andra projekt.`;
+                    
+                    let userPrompt = '';
+                    
+                    if (mode === 'generate') {
+                        let documentInstructions = buildDocumentInstructions(docType, docTypeNameLocal);
+                        
+                        // Language enforcement (samma som v6)
+                        const languageInstruction = language === 'svenska' 
+                            ? '\n\nVIKTIGT: Skriv HELA dokumentet på SVENSKA. Alla rubriker, all text, alla beskrivningar ska vara på svenska. VIKTIGT: Tabellrubriker ska också vara på svenska (Risk → Risk, Impact → Påverkan, Likelihood → Sannolikhet, Severity → Allvarlighet, Trend → Trend, Mitigation → Åtgärd, Owner → Ansvarig).'
+                            : '\n\nIMPORTANT: Write the ENTIRE document in ENGLISH. All headings, all text, all descriptions must be in English.';
+                        
+                        // Protected blocks instruction
+                        const protectedInstruction = protectedBlocks.length > 0 ? `\n\nSKYDDADE BLOCK - VIKTIGT:
+Det finns ${protectedBlocks.length} skyddade block markerade som {{PROTECTED_BLOCK_X}}.
+
+KRITISKT - dessa block MÅSTE inkluderas i dokumentet:
+- Detta är VIKTIG INFORMATION som är del av innehållet
+- Behandla placeholders som riktigt innehåll, inte metadata
+- Placera dem i SAMMA KONTEXT som de har i rådatan
+- Om {{PROTECTED_BLOCK_1}} står efter =2025-12-15=, inkludera det under den dagens sektion
+- Om det står i en risklogg, inkludera det som en risk
+- Om det står i ett möte, inkludera det i mötesprotokollet
+- Behåll EXAKT placeholders (ändra INTE dem)
+- Formulera INTE om eller sammanfatta dem
+
+Exempel:
+Rådata: "Projekt X lanseras. {{PROTECTED_BLOCK_1}} Nästa steg är Y."
+Ditt svar: "Projekt X lanseras. {{PROTECTED_BLOCK_1}} Nästa steg är Y."` : '';
+                        
+                        // Clear format instructions
+                        const formatInstruction = `\n\nFORMAT:
+1. Första rubriken ska ALLTID vara dokumenttypen: "${docTypeNameLocal}"
+2. Leverera först OneNote-versionen (Markdown)
+3. Sedan Word-versionen (.docx)
+4. STOPPA DIREKT efter Word-versionen är klar
+5. Lägg INTE till extra sammanfattningar eller rubriker efter Word-versionen`;
+                        
+                        // Add project memory mapping FIRST (with codes) if available
+                        userPrompt = `${projectMemoryMapping}${projectContext}${documentInstructions}${languageInstruction}${protectedInstruction}${formatInstruction}\n\nRÅDATA:\n${dataToUse}`;
+                    } else {
+                        const analysisName = ANALYSIS_TYPES.find(a => a.id === analysisType)?.name || analysisType;
+                        const languageInstruction = language === 'svenska' 
+                            ? '\n\nVIKTIGT: Skriv analysen på SVENSKA.'
+                            : '\n\nIMPORTANT: Write the analysis in ENGLISH.';
+                        
+                        // Protected blocks instruction for analysis too
+                        const protectedInstruction = protectedBlocks.length > 0 ? `\n\nKONFIDENTIELLA BLOCK I RÅDATAN:
+Det finns ${protectedBlocks.length} konfidentiella block: ${protectedBlocks.map((b, i) => `{{PROTECTED_BLOCK_${i+1}}}`).join(', ')}.
+
+KRITISKT - Du MÅSTE inkludera dessa i din analys:
+Dessa är PLACEHOLDERS som kommer ersättas med konfidentiell information.
+
+REGEL: Varje ${protectedBlocks.map((b, i) => `{{PROTECTED_BLOCK_${i+1}}}`).join(' och ')} MÅSTE finnas i din output.
+
+Skriv placeholders EXAKT som de är:
+- {{PROTECTED_BLOCK_1}} → skriv exakt {{PROTECTED_BLOCK_1}}
+- {{PROTECTED_BLOCK_2}} → skriv exakt {{PROTECTED_BLOCK_2}}
+
+EXEMPEL med 2 block:
+Input: "Projekt X. {{PROTECTED_BLOCK_1}} Nästa fas. {{PROTECTED_BLOCK_2}} Slutsats."
+
+KORREKT Output:
+"## Analys
+Projekt X visar framsteg. {{PROTECTED_BLOCK_1}}
+Planering för nästa fas pågår. {{PROTECTED_BLOCK_2}}
+Sammanfattning: Projektet fortskrider enligt plan."
+
+INKORREKT Output (detta är FEL):
+"## Analys
+Projektet visar framsteg och planering pågår."
+❌ FEL - båda placeholders saknas!
+
+Placera varje placeholder där den logiskt hör hemma i analysen.
+Skippa ALDRIG en placeholder - alla måste finnas med.` : '';
+                        
+                        const analysisGuidance = `\n\nDETTA ÄR EN ANALYS - Använd din AI-förmåga:
+
+✅ UPPMUNTRAS:
+- Identifiera implicita risker som inte explicit nämns
+- Dra slutsatser och tolkningar
+- Föreslå mitigeringar och lösningar (generella)
+- Analysera konsekvenser och samband
+- Identifiera gap och blockerare
+- Ge rekommendationer baserat på rådatan
+- Lägga till professionell PMO-expertis
+
+❌ MEN HITTA INTE PÅ:
+- Specifika actions med deadlines som inte nämns
+- "Nästa steg" sections med påhittade uppgifter
+- Konkreta deadlines som inte står i rådatan
+- Specifika aktiviteter som inte diskuterats
+
+EXEMPEL:
+✅ Bra: "Rekommendation: Etablera regelbunden statusrapportering"
+❌ Dåligt: "Nästa steg: Uppföljning senast 17/12" (om 17/12 inte nämns i rådata)
+
+Detta skiljer sig från faktadokument (veckorapport, möte) där ENDAST fakta rapporteras.`;
+                        
+                        userPrompt = `${projectMemoryMapping}${projectContext}${analysisGuidance}${protectedInstruction}\n\nUtför en ${analysisName} på följande rådata:\n\n${dataToUse}\n\nIdentifiera och strukturera relevant information enligt MASTER FORMAT.${languageInstruction}`;
+                    }
+                    
+                    // SECURITY AUDIT LOG - Vad skickas till AI?
+                    console.log('🔐 === SECURITY AUDIT - DATA SENT TO AI ===');
+                    console.log('📤 Data being sent to Claude API (first 500 chars):');
+                    console.log(dataToUse.substring(0, 500));
+                    if (dataToUse.length > 500) {
+                        console.log(`... (${dataToUse.length - 500} more characters)`);
+                    }
+                    if (protectedBlocks.length > 0) {
+                        console.log('✅ PROTECTED BLOCKS - AI NEVER SEES THESE:');
+                        protectedBlocks.forEach(block => {
+                            console.log(`  🔒 ${block.placeholder}: "${block.content.substring(0, 100)}..."`);
+                        });
+                    }
+                    console.log('🔐 === END SECURITY AUDIT ===');
+
+                    const response = await fetch(`${BACKEND_URL}/generate`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            system_prompt: systemPrompt,
+                            user_prompt: userPrompt,
+                            max_tokens: 4096
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.error || `API error: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    let content = data.content;
+                    
+                    // Replace project memory codes with full info in the response
+                    if (Object.keys(projectMemoryCodeMap).length > 0) {
+                        console.log('🔑 Replacing project memory codes in AI response...');
+                        content = window.SecurityFunctions.replaceCodesWithInfo(content, projectMemoryCodeMap);
+                        
+                        // ALSO restore in protected blocks content!
+                        protectedBlocks.forEach(block => {
+                            block.content = window.SecurityFunctions.replaceCodesWithInfo(block.content, projectMemoryCodeMap);
+                        });
+                        
+                        console.log('✅ Project memory codes replaced (including protected blocks)');
+                    }
+                    
+                    // Restore anonymization codes to original values
+                    if (anonymizationEntries.length > 0) {
+                        console.log('🔓 Restoring anonymization codes...');
+                        content = window.SecurityFunctions.restoreFromAnonymizationCodes(content, anonymizationEntries);
+                        
+                        // ALSO restore in protected blocks content!
+                        protectedBlocks.forEach(block => {
+                            block.content = window.SecurityFunctions.restoreFromAnonymizationCodes(block.content, anonymizationEntries);
+                        });
+                        
+                        console.log('✅ Anonymization codes restored (including protected blocks)');
+                    }
+                    
+                    // Merge protected blocks (AI never saw this content!)
+                    if (protectedBlocks.length > 0) {
+                        console.log('🔐 Merging protected blocks...');
+                        content = mergeProtectedBlocks(content, protectedBlocks);
+                        console.log('✅ Protected blocks merged with full context');
+                    }
+                    
+                    // Trim any extra content after Word version (safety cleanup)
+                    if (mode === 'generate') {
+                        // Find last occurrence of Word version header
+                        const wordHeaderMatch = content.match(/# Word-version.*?\n/gi);
+                        if (wordHeaderMatch && wordHeaderMatch.length > 1) {
+                            // Multiple Word headers found - trim after first complete Word section
+                            const firstWordPos = content.indexOf(wordHeaderMatch[0]);
+                            const secondWordPos = content.indexOf(wordHeaderMatch[1]);
+                            if (secondWordPos > firstWordPos) {
+                                content = content.substring(0, secondWordPos);
+                                console.log('⚠️ Trimmed duplicate Word section');
+                            }
+                        }
+                    }
+
+                    // Save document to Supabase (optional - kan misslyckas)
+                    try {
+                        const { error: saveError } = await supabase
+                            .from('documents')
+                            .insert({
+                                project_id: project.id,
+                                type: mode === 'generate' ? docType : `analysis_${analysisType}`,
+                                mode: mode,
+                                content: content,
+                                language: language,
+                                title: mode === 'generate' ? docTypeNameLocal : ANALYSIS_TYPES.find(a => a.id === analysisType)?.name
+                            });
+
+                        if (saveError) {
+                            console.warn('⚠️ Kunde inte spara dokument till Supabase:', saveError);
+                        } else {
+                            console.log('✅ Dokument sparat till Supabase');
+                        }
+                    } catch (docSaveErr) {
+                        console.warn('⚠️ Document save error (ignoreras):', docSaveErr);
+                    }
+
+                    setResult(content);
+                    addToast(mode === 'generate' ? 'Dokument genererat!' : 'Analys klar!', 'success');
+
+                } catch (err) {
+                    console.error('Error generating:', err);
+                    setError('Fel vid generering: ' + err.message);
+                    addToast('Fel vid generering', 'error');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const buildDocumentInstructions = (docType, docTypeNameLocal) => {
+                const instructions = {
+                    weekly: `DOKUMENTTYP: ${docTypeNameLocal}
+
+VIKTIGT: Detta är ett FAKTADOKUMENT, inte en analys.
+Rapportera fakta från rådatan utan att lägga till tolkningar eller resonemang.
+(För analys och djupare tolkningar, använd PMO-analys eller Kravanalys istället)
+
+DIN UPPGIFT:
+Omvandla rådatan till en professionell veckorapport genom att:
+- Strukturera information logiskt per datum
+- Formulera om till professionell projektrapport-text
+- Identifiera vad som är framsteg, beslut, risker, etc.
+- Sammanfatta övergripande teman
+
+FOKUSERA PÅ:
+- Övergripande framsteg denna vecka/period
+- Viktiga beslut
+- Status på projektet som helhet
+- Utmaningar eller risker (om de nämns i rådatan)
+- Nästa periods fokus
+
+DATUM-STRUKTUR:
+- Organisera innehåll kronologiskt per datum (=YYYY-MM-DD=)
+- Behåll datum-sektioner från rådatan
+- Placera innehåll under rätt datum
+- Om {{PROTECTED_BLOCK_X}} finns efter ett datum, placera det under samma datum
+
+STIL: 
+- Professionell projektrapport-ton
+- Omformulera rådata till färdig text
+- Inte bara kopiera ordagrant
+- Strukturera i rubriker och punkter
+
+REGLER:
+✅ TILLÅTET:
+- Formulera om rådata professionellt
+- Tolka "Projekt adam startar 2 jan" → "Projekt adam planeras att starta 2 januari 2026"
+- Kategorisera information (framsteg, beslut, risker)
+- Skapa sammanfattning av vad som faktiskt står
+
+❌ EJ TILLÅTET (spara detta för PMO-analys):
+- Hitta på risker som INTE nämns
+- Hitta på aktiviteter som INTE nämns
+- Hitta på sammanfattningar av saker som inte finns
+- Lägga till varningar som "Baserat på partiell data"
+- Skapa tabeller för saker som inte finns i rådatan
+- Lägga till resonemang eller tolkningar ("för att säkerställa...", "innan helgperioden...")
+- Lägga till orsaker eller syften som inte står i rådatan
+- Dra slutsatser utöver vad som explicit sägs
+
+EXEMPEL:
+Rådata: "Lars är projektledare projekt adam"
+✅ Bra: "Lars har utsetts till projektledare för projekt adam"
+❌ Dåligt: "Lars är projektledare projekt adam" (ordagrann kopia)
+❌ Dåligt: "Lars utsedd till projektledare. Risk: Lars kan bli överbelastad" (påhittad risk)
+❌ Dåligt: "Lars utsedd till projektledare för att säkerställa tydligt ledarskap" (påhittat resonemang)
+`,
+                    
+                    meeting: `DOKUMENTTYP: ${docTypeNameLocal}
+
+VIKTIGT: Detta är ett FAKTADOKUMENT, inte en analys.
+Dokumentera vad som hände på mötet utan att lägga till tolkningar.
+(För djupare analys av möten, använd Mötesanalys istället)
+
+EXTRAHERA ENDAST MÖTESINFORMATION:
+- Vilka möten hölls?
+- Vad diskuterades på varje möte?
+- Vilka beslut togs på mötet?
+- Vilka actions kom från mötet?
+- Deltagare (om angivet)
+
+OM RÅDATA INTE INNEHÅLLER TYDLIG MÖTESINFORMATION:
+- Skriv: "Ingen mötesinformation hittades i rådata"
+- SKAPA INTE möten av utvecklingsarbete
+- SKAPA INTE möten av allmänna statusuppdateringar
+
+IGNORERA:
+- Utvecklingsframsteg som inte diskuterades på möte
+- Risker som inte togs upp på möte
+- Tekniska detaljer utanför möteskontext
+
+❌ EJ TILLÅTET:
+- Lägga till tolkningar av varför beslut fattades
+- Spekulera om framtida konsekvenser
+- Lägga till resonemang som inte diskuterades
+`,
+                    
+                    risk: `DOKUMENTTYP: ${docTypeNameLocal}
+
+IDENTIFIERA ENDAST RISKER OCH HOT:
+- Explicita risker (märkt som "risk", "problem", "utmaning")
+- Implicita risker (blockerare, beroenden, osäkerheter)
+- Sannolikhet och konsekvens (om angivet)
+- Mitigation-planer (om angivet)
+
+IGNORERA:
+- Normala framsteg och achievements
+- Avklarade tasks
+- Mötesinformation (om inte riskdiskussion)
+- Positiva uppdateringar
+
+OM INGA RISKER FINNS:
+- Skriv: "Inga risker identifierade i rådata"
+`,
+
+                    action: `DOKUMENTTYP: ${docTypeNameLocal}
+
+EXTRAHERA ALLA ACTIONS/UPPGIFTER:
+- Explicita actions: "Action:", "TODO:", "Ska göra", "Uppgift:"
+- Implicita uppgifter: Verb + objekt (t.ex. "Sara specificerar API", "Johan fixar bug")
+- Beslut som leder till action (t.ex. "Beslut: Vi ska migrera" → Action: Migrera system)
+- Nämnda deadlines även utan explicit action
+- Ansvarig person behövs INTE - skippa "Owner" om okänd
+
+LETA EFTER DESSA MÖNSTER:
+- "[Person] ska [göra något]"
+- "[Person] [verb] [objekt]" (Sara skickar spec)
+- "Vi måste [göra något]"
+- "Nästa steg: [något]"
+- Deadline-omnämnanden (senast fredag, deadline X, etc.)
+
+TABELLFORMAT (Owner kan vara TBD):
+Action | Owner | Deadline | Status
+
+EXEMPEL:
+Rådata: "Sara specificerar API senast onsdag"
+→ Action: Specificera API | Owner: Sara | Deadline: Onsdag | Status: Not started
+
+Rådata: "API-dokumentationen måste uppdateras"
+→ Action: Uppdatera API-dokumentation | Owner: TBD | Deadline: - | Status: Not started
+
+IGNORERA:
+- Statusuppdateringar om klara saker
+- Risker utan åtgärder
+`,
+
+                    userstory: `DOKUMENTTYP: ${docTypeNameLocal}
+
+KRITISK REGEL - BASERA ENDAST PÅ RÅDATA:
+- Skapa user stories ENDAST från funktionella krav som FINNS i rådata
+- Hitta INTE på egna stories
+- Hitta INTE på egna acceptanskriterier
+- OM rådata saknar user story-information → Skriv "Ingen user story-information hittades i rådata"
+
+SKAPA USER STORIES:
+- Format: Som [roll] vill jag [funktion] så att [nytta]
+- [roll], [funktion] och [nytta] MÅSTE komma från rådata
+- Om roll saknas i rådata → använd "användare" eller "systemanvändare"
+
+LETA EFTER:
+- Explicita krav: "Användaren ska kunna...", "Systemet måste..."
+- Funktionsbeskrivningar: "Login-funktion", "Betalning", etc.
+- Nämnda användarroller
+- Beskrivna funktioner eller features
+
+ACCEPTANSKRITERIER:
+- ENDAST skapa från information i rådata
+- OM inget specifikt nämns → skippa acceptanskriterier
+- Format: "Givet att... När... Då..."
+
+EXEMPEL:
+Rådata: "Login-modul med användarnamn och lösenord färdig"
+✅ Korrekt story: Som användare vill jag logga in med användarnamn och lösenord så att jag kan komma åt systemet
+
+Rådata: "Backend API klar"
+❌ Fel: Hitta på 10 olika API user stories
+✅ Korrekt: "Begränsad information - Backend API nämns men inga specifika användarkrav beskrivna"
+
+IGNORERA:
+- Tekniska implementation-detaljer (om inte del av användarkrav)
+- Buggar
+- Infrastruktur
+- Interna processer`,
+
+                    steering: `DOKUMENTTYP: ${docTypeNameLocal}
+
+SKAPA STYRGRUPP-SLIDES:
+- Max 5-7 slides
+- Varje slide med titel och 3-5 bullets
+- Fokus på beslut, risker, nästa steg
+
+STRUKTUR:
+1. Executive Summary
+2. Status Overview
+3. Key Decisions Needed
+4. Risks & Issues
+5. Next Steps`,
+
+                    milestones: `DOKUMENTTYP: ${docTypeNameLocal}
+
+EXTRAHERA MILSTOLPAR:
+- Större leveranser eller checkpoints
+- Datum (från rådata eller implicit)
+- Status
+- Dependencies
+
+FORMAT:
+Milestone | Target Date | Status | Owner | Dependencies`,
+
+                    trends: `DOKUMENTTYP: ${docTypeNameLocal}
+
+ANALYSERA TRENDER:
+- Jämför data över tid (använd datum-sektioner)
+- Identifiera mönster
+- Förändringar i velocity, quality, scope
+- Förbättringar eller försämringar
+
+FOKUSERA PÅ:
+- Vad förändras över tid?
+- Varför?
+- Vad betyder det för projektet?`,
+
+                    project: `DOKUMENTTYP: ${docTypeNameLocal}
+
+SKAPA OMFATTANDE PROJEKTRAPPORT:
+- Fullständig överblick av projektet
+- Alla aspekter: Status, Risker, Beslut, Framsteg, Budget (om relevant)
+- Strukturerad enligt MASTER FORMAT
+
+INKLUDERA:
+1. Executive Summary
+2. Status Overview
+3. Progress & Achievements
+4. Risks & Issues
+5. Decisions & Actions
+6. Timeline & Milestones
+7. Next Steps`
+                };
+
+                return instructions[docType] || `DOKUMENTTYP: ${docTypeNameLocal}\n\nSkapa dokument enligt MASTER FORMAT.`;
+            };
+
+            return (
+                <div className="min-h-screen">
+                    {/* Header */}
+                    <div className="glass-dark shadow-2xl">
+                        <div className="max-w-7xl mx-auto px-3 md:px-6 py-4 md:py-6">
+                            <div className="flex items-center justify-between flex-wrap gap-3">
+                                <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
+                                    <button 
+                                        onClick={onBackToProjects}
+                                        className="text-white hover:text-gray-200 transition-all flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-white/10"
+                                    >
+                                        <span className="text-xl">←</span> Projekt
+                                    </button>
+                                    <div>
+                                        <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center gap-2">
+                                            <span className="text-3xl md:text-4xl">✨</span> 
+                                            <span>{project.name}</span>
+                                        </h1>
+                                        <p className="text-white/70 text-xs md:text-sm mt-1">v8.7 - Cloud Edition</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={onLogout}
+                                        className="px-2 md:px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-all text-xs md:text-sm"
+                                        title="Logga ut"
+                                    >
+                                        <span className="md:hidden">↪</span>
+                                        <span className="hidden md:inline">Logga ut</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Main Content */}
+                    <div className="max-w-7xl mx-auto px-3 md:px-6 py-6">
+                        <div className="glass rounded-2xl p-6 md:p-8 fade-in">
+                            
+                            {/* Mode Selection */}
+                            <div className="mb-8">
+                                <label className="block text-sm font-bold text-gray-700 mb-3">
+                                    🎯 Vad vill du göra?
+                                </label>
+                                <div className="flex flex-col md:flex-row gap-3">
+                                    <button
+                                        onClick={() => setMode('generate')}
+                                        className={`flex-1 py-4 rounded-xl font-semibold transition-all ${
+                                            mode === 'generate'
+                                                ? 'btn-gradient text-white shadow-lg'
+                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        }`}
+                                    >
+                                        🚀 Generera Dokument
+                                    </button>
+                                    <button
+                                        onClick={() => setMode('analyze')}
+                                        className={`flex-1 py-4 rounded-xl font-semibold transition-all ${
+                                            mode === 'analyze'
+                                                ? 'btn-gradient text-white shadow-lg'
+                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        }`}
+                                    >
+                                        🔍 Analysera Rådata
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Document/Analysis Type Selection */}
+                            {mode === 'generate' && (
+                                <div className="mb-6">
+                                    <label className="block text-sm font-bold text-gray-700 mb-3">
+                                        📄 Dokumenttyp
+                                    </label>
+                                    <select
+                                        value={docType}
+                                        onChange={(e) => setDocType(e.target.value)}
+                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-lg font-medium"
+                                    >
+                                        {DOCUMENT_TYPES.map(type => (
+                                            <option key={type.id} value={type.id}>
+                                                {language === 'svenska' ? type.nameSv : type.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            {mode === 'analyze' && (
+                                <div className="mb-6">
+                                    <label className="block text-sm font-bold text-gray-700 mb-3">
+                                        🔍 Analystyp
+                                    </label>
+                                    <select
+                                        value={analysisType}
+                                        onChange={(e) => setAnalysisType(e.target.value)}
+                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-lg font-medium"
+                                    >
+                                        {ANALYSIS_TYPES.map(type => (
+                                            <option key={type.id} value={type.id}>
+                                                {type.name} - {type.description}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            {/* Language & GDPR Settings */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-3">
+                                        🌍 Språk
+                                    </label>
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={() => setLanguage('svenska')}
+                                            className={`flex-1 py-3 rounded-xl font-semibold transition-all ${
+                                                language === 'svenska'
+                                                    ? 'btn-gradient text-white shadow-lg'
+                                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                            }`}
+                                        >
+                                            Svenska
+                                        </button>
+                                        <button
+                                            onClick={() => setLanguage('english')}
+                                            className={`flex-1 py-3 rounded-xl font-semibold transition-all ${
+                                                language === 'english'
+                                                    ? 'btn-gradient text-white shadow-lg'
+                                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                            }`}
+                                        >
+                                            English
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Quick Insert Section */}
+                            <div className="quick-insert-section mb-6">
+                                <div className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                    <span className="text-2xl">⚡</span> Snabbinfoga
+                                </div>
+                                <p className="text-sm text-gray-600 mb-4">
+                                    Knappar för att snabbt infoga strukturer i ditt rådata.
+                                </p>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        onClick={() => quickInsertDate(0)}
+                                        className="quick-insert-btn"
+                                        title="Infogar dagens datum"
+                                    >
+                                        📅 Idag
+                                    </button>
+                                    <button
+                                        onClick={() => quickInsertDate(-1)}
+                                        className="quick-insert-btn"
+                                        title="Infogar gårdagens datum"
+                                    >
+                                        📅 Igår
+                                    </button>
+                                    <button
+                                        onClick={quickInsertCustomDate}
+                                        className="quick-insert-btn"
+                                        title="Välj ett specifikt datum"
+                                    >
+                                        📅 Välj datum...
+                                    </button>
+                                    <button
+                                        onClick={quickInsertMeeting}
+                                        className="quick-insert-btn"
+                                        title="Markera som möte"
+                                    >
+                                        👥 Markera möte
+                                    </button>
+                                    <button
+                                        onClick={quickInsertProtected}
+                                        className="quick-insert-btn bg-red-50 hover:bg-red-100 border-red-200"
+                                        title="Skydda känslig text - skickas INTE till AI"
+                                    >
+                                        🔒 Skyddad text
+                                    </button>
+                                </div>
+                                <div className="mt-4 p-3 bg-white/50 rounded-lg text-xs text-gray-600">
+                                    <strong>Format-exempel:</strong>
+                                    <pre className="mt-2 font-mono text-xs overflow-x-auto">
+{`=2024-12-08=
+Din rådata här
+===
+
+=2024-12-09=
+=MÖTE=
+Mötesinformation här
+===
+
+[[PROTECTED]]
+Känslig information (AI ser ALDRIG detta)
+[[/PROTECTED]]`}
+                                    </pre>
+                                </div>
+                            </div>
+
+                            {/* Raw Data Input */}
+                            <div className="mb-8">
+                                <div className="flex items-center justify-between mb-3">
+                                    <label className="block text-sm font-bold text-gray-700">
+                                        📝 Rådata
+                                    </label>
+                                    <button
+                                        onClick={() => {
+                                            if (rawData.trim() && !confirm('Är du säker på att du vill rensa all rådata?')) {
+                                                return;
+                                            }
+                                            setRawData('');
+                                            localStorage.removeItem(`pmo_autosave_rawdata_${project.id}`);
+                                            localStorage.removeItem(`pmo_autosave_timestamp_${project.id}`);
+                                        }}
+                                        className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg font-medium transition-all text-sm border border-red-200"
+                                        title="Rensa rådata för ny vecka/period"
+                                    >
+                                        🗑️ Rensa rådata
+                                    </button>
+                                </div>
+                                <textarea
+                                    ref={textareaRef}
+                                    value={rawData}
+                                    onChange={(e) => setRawData(e.target.value)}
+                                    placeholder="Klistra in rådata eller använd snabbknapparna ovan för att strukturera med datum-sektioner..."
+                                    className="w-full px-6 py-4 border-2 border-gray-200 rounded-xl h-80 font-mono text-sm resize-none"
+                                />
+                                
+                                {/* Load Saved Raw Data - ALLTID synlig */}
+                                <div className="mt-3">
+                                    <button
+                                        onClick={async () => {
+                                            // Refresha data först
+                                            await loadProjectData();
+                                            setShowSavedRawData(!showSavedRawData);
+                                        }}
+                                        className="px-4 py-2 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 text-green-700 rounded-lg font-medium hover:bg-green-50 transition-all text-sm"
+                                    >
+                                        📚 Ladda sparad rådata ({savedRawDataEntries.length})
+                                    </button>
+                                    
+                                    {showSavedRawData && savedRawDataEntries.length > 0 && (
+                                            <div className="mt-3 p-4 bg-white border-2 border-green-200 rounded-xl max-h-64 overflow-y-auto">
+                                                <h3 className="font-semibold text-gray-800 mb-3">Sparad rådata:</h3>
+                                                <div className="space-y-2">
+                                                    {savedRawDataEntries.map(entry => {
+                                                        // Använd sparad title om den finns, annars fallback
+                                                        const displayTitle = entry.title || (() => {
+                                                            const contentPreview = entry.content.split('\n')[0].substring(0, 50);
+                                                            const dateMatch = entry.content.match(/=(\d{4}-\d{2}-\d{2})=/);
+                                                            return dateMatch ? `Rådata ${dateMatch[1]}` : contentPreview || 'Sparad rådata';
+                                                        })();
+                                                        
+                                                        return (
+                                                            <div key={entry.id} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all">
+                                                                <div className="flex justify-between items-start">
+                                                                    <div 
+                                                                        onClick={() => loadSavedRawData(entry)}
+                                                                        className="flex-1 cursor-pointer"
+                                                                    >
+                                                                        <div className="font-semibold text-gray-800">
+                                                                            {displayTitle}
+                                                                        </div>
+                                                                        <div className="text-xs text-gray-500 mt-1">
+                                                                            Sparad: {new Date(entry.created_at).toLocaleString('sv-SE')}
+                                                                        </div>
+                                                                        <div className="text-xs text-gray-400 mt-1 truncate">
+                                                                            {entry.content.substring(0, 80)}...
+                                                                        </div>
+                                                                    </div>
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            deleteRawDataEntry(entry.id);
+                                                                        }}
+                                                                        className="ml-2 px-2 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-xs font-medium"
+                                                                    >
+                                                                        Ta bort
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+                                        
+                                        {showSavedRawData && savedRawDataEntries.length === 0 && (
+                                            <div className="mt-3 p-4 bg-white border-2 border-gray-200 rounded-xl text-center text-gray-500">
+                                                Ingen sparad rådata hittades. Spara data nedan för att se den här.
+                                            </div>
+                                        )}
+                                    </div>
+                                
+                                {/* Save Raw Data Section */}
+                                <div className="mt-4 p-5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border-2 border-blue-200">
+                                    <div className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                                        <span className="text-xl">💾</span> Spara Rådata
+                                    </div>
+                                    <p className="text-xs text-gray-600 mb-4">
+                                        Spara denna rådata för att återanvända senare eller bygga på under veckan. Du behöver inte generera dokument för att spara.
+                                    </p>
+                                    
+                                    <div className="space-y-3">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Rubrik:
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={rawDataTitle}
+                                                onChange={(e) => setRawDataTitle(e.target.value)}
+                                                placeholder={`Vecka ${Math.ceil((new Date().getDate()) / 7)} - ${new Date().toLocaleDateString('sv-SE')}`}
+                                                className="w-full px-4 py-2 border-2 border-blue-300 rounded-lg text-sm focus:border-blue-500 focus:outline-none"
+                                            />
+                                        </div>
+                                        
+                                        <div className="flex flex-col md:flex-row gap-3">
+                                            <button
+                                                onClick={saveRawDataEntry}
+                                                className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all shadow-md"
+                                            >
+                                                💾 Spara Nu
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setRawData('');
+                                                    setRawDataTitle('');
+                                                }}
+                                                className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-all"
+                                            >
+                                                🗑️ Rensa
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Error Display */}
+                            {error && (
+                                <div className="mb-6 p-4 bg-red-50 border-2 border-red-200 text-red-700 rounded-xl fade-in">
+                                    ⚠️ {error}
+                                </div>
+                            )}
+
+                            {/* Generate Button */}
+                            <button
+                                onClick={handleGenerate}
+                                disabled={loading}
+                                className={`action-button w-full py-6 rounded-2xl font-bold text-xl transition-all text-white ${
+                                    loading ? 'opacity-50' : ''
+                                }`}
+                            >
+                                {loading ? (
+                                    <span className="flex items-center justify-center gap-3">
+                                        <span className="pulse">⏳</span> Genererar...
+                                    </span>
+                                ) : mode === 'generate' ? (
+                                    <span className="flex items-center justify-center gap-3">
+                                        <span>🚀</span> Generera Dokument
+                                    </span>
+                                ) : (
+                                    <span className="flex items-center justify-center gap-3">
+                                        <span>🔍</span> Analysera Rådata
+                                    </span>
+                                )}
+                            </button>
+
+                            
+                            {/* Manual Anonymization Expandable Section */}
+                            <div className="mt-12 pt-8 border-t-2 border-gray-200">
+                                <button
+                                    onClick={() => setShowAnonymization(!showAnonymization)}
+                                    className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-red-50 to-orange-50 hover:from-red-100 hover:to-orange-100 rounded-xl border-2 border-red-200 transition-all"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-2xl">🔒</span>
+                                        <div className="text-left">
+                                            <h2 className="text-xl font-bold text-gray-800">
+                                                Anonymiseringslista (Manuell)
+                                            </h2>
+                                            <p className="text-sm text-gray-600">
+                                                {anonymizationEntries.length > 0 
+                                                    ? `${anonymizationEntries.length} entries - Ersätts INNAN AI ser data`
+                                                    : 'Lägg till namn/organisationer som ska anonymiseras'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <span className="text-2xl text-gray-600">
+                                        {showAnonymization ? '▲' : '▼'}
+                                    </span>
+                                </button>
+                                
+                                {showAnonymization && (
+                                    <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 animate-fadeIn">
+                                        {/* Personer */}
+                                        <div className="bg-white p-6 rounded-xl border-2 border-gray-200 shadow-sm">
+                                            <div className="flex justify-between items-center mb-4">
+                                                <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                                    🧑 Personer
+                                                    <span className="text-sm font-normal text-gray-500">
+                                                        ({getAnonymizationByType('person').length})
+                                                    </span>
+                                                </h3>
+                                                <button
+                                                    onClick={() => openAnonModal('person', 'add')}
+                                                    className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-all"
+                                                >
+                                                    + Lägg till
+                                                </button>
+                                            </div>
+                                            <div className="space-y-2 max-h-64 overflow-y-auto">
+                                                {getAnonymizationByType('person').length === 0 ? (
+                                                    <p className="text-gray-400 text-sm italic">Inga personer tillagda</p>
+                                                ) : (
+                                                    getAnonymizationByType('person').map(entry => (
+                                                        <div key={entry.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all">
+                                                            <div className="flex-1">
+                                                                <span className="font-semibold text-gray-800">{entry.original_value}</span>
+                                                                <span className="mx-2 text-gray-400">→</span>
+                                                                <span className="text-sm text-red-600 font-mono">{entry.anonymized_code}</span>
+                                                            </div>
+                                                            <div className="flex gap-2 ml-2">
+                                                                <button
+                                                                    onClick={() => openAnonModal('person', 'edit', entry)}
+                                                                    className="text-blue-600 hover:text-blue-800 text-lg"
+                                                                >
+                                                                    ✏️
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => deleteAnonymizationEntry(entry.id)}
+                                                                    className="text-red-600 hover:text-red-800 text-lg"
+                                                                >
+                                                                    🗑️
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Organisationer */}
+                                        <div className="bg-white p-6 rounded-xl border-2 border-gray-200 shadow-sm">
+                                            <div className="flex justify-between items-center mb-4">
+                                                <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                                    🏢 Organisationer
+                                                    <span className="text-sm font-normal text-gray-500">
+                                                        ({getAnonymizationByType('organization').length})
+                                                    </span>
+                                                </h3>
+                                                <button
+                                                    onClick={() => openAnonModal('organization', 'add')}
+                                                    className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-all"
+                                                >
+                                                    + Lägg till
+                                                </button>
+                                            </div>
+                                            <div className="space-y-2 max-h-64 overflow-y-auto">
+                                                {getAnonymizationByType('organization').length === 0 ? (
+                                                    <p className="text-gray-400 text-sm italic">Inga organisationer tillagda</p>
+                                                ) : (
+                                                    getAnonymizationByType('organization').map(entry => (
+                                                        <div key={entry.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all">
+                                                            <div className="flex-1">
+                                                                <span className="font-semibold text-gray-800">{entry.original_value}</span>
+                                                                <span className="mx-2 text-gray-400">→</span>
+                                                                <span className="text-sm text-red-600 font-mono">{entry.anonymized_code}</span>
+                                                            </div>
+                                                            <div className="flex gap-2 ml-2">
+                                                                <button
+                                                                    onClick={() => openAnonModal('organization', 'edit', entry)}
+                                                                    className="text-blue-600 hover:text-blue-800 text-lg"
+                                                                >
+                                                                    ✏️
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => deleteAnonymizationEntry(entry.id)}
+                                                                    className="text-red-600 hover:text-red-800 text-lg"
+                                                                >
+                                                                    🗑️
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Platser */}
+                                        <div className="bg-white p-6 rounded-xl border-2 border-gray-200 shadow-sm">
+                                            <div className="flex justify-between items-center mb-4">
+                                                <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                                    📍 Platser
+                                                    <span className="text-sm font-normal text-gray-500">
+                                                        ({getAnonymizationByType('location').length})
+                                                    </span>
+                                                </h3>
+                                                <button
+                                                    onClick={() => openAnonModal('location', 'add')}
+                                                    className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-all"
+                                                >
+                                                    + Lägg till
+                                                </button>
+                                            </div>
+                                            <div className="space-y-2 max-h-64 overflow-y-auto">
+                                                {getAnonymizationByType('location').length === 0 ? (
+                                                    <p className="text-gray-400 text-sm italic">Inga platser tillagda</p>
+                                                ) : (
+                                                    getAnonymizationByType('location').map(entry => (
+                                                        <div key={entry.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all">
+                                                            <div className="flex-1">
+                                                                <span className="font-semibold text-gray-800">{entry.original_value}</span>
+                                                                <span className="mx-2 text-gray-400">→</span>
+                                                                <span className="text-sm text-red-600 font-mono">{entry.anonymized_code}</span>
+                                                            </div>
+                                                            <div className="flex gap-2 ml-2">
+                                                                <button
+                                                                    onClick={() => openAnonModal('location', 'edit', entry)}
+                                                                    className="text-blue-600 hover:text-blue-800 text-lg"
+                                                                >
+                                                                    ✏️
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => deleteAnonymizationEntry(entry.id)}
+                                                                    className="text-red-600 hover:text-red-800 text-lg"
+                                                                >
+                                                                    🗑️
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Identifierare */}
+                                        <div className="bg-white p-6 rounded-xl border-2 border-gray-200 shadow-sm">
+                                            <div className="flex justify-between items-center mb-4">
+                                                <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                                    🔢 Identifierare
+                                                    <span className="text-sm font-normal text-gray-500">
+                                                        ({getAnonymizationByType('identifier').length})
+                                                    </span>
+                                                </h3>
+                                                <button
+                                                    onClick={() => openAnonModal('identifier', 'add')}
+                                                    className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-all"
+                                                >
+                                                    + Lägg till
+                                                </button>
+                                            </div>
+                                            <div className="space-y-2 max-h-64 overflow-y-auto">
+                                                <p className="text-xs text-gray-500 mb-2">
+                                                    Personnummer, kundnr, etc
+                                                </p>
+                                                {getAnonymizationByType('identifier').length === 0 ? (
+                                                    <p className="text-gray-400 text-sm italic">Inga identifierare tillagda</p>
+                                                ) : (
+                                                    getAnonymizationByType('identifier').map(entry => (
+                                                        <div key={entry.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all">
+                                                            <div className="flex-1">
+                                                                <span className="font-semibold text-gray-800">{entry.original_value}</span>
+                                                                <span className="mx-2 text-gray-400">→</span>
+                                                                <span className="text-sm text-red-600 font-mono">{entry.anonymized_code}</span>
+                                                            </div>
+                                                            <div className="flex gap-2 ml-2">
+                                                                <button
+                                                                    onClick={() => openAnonModal('identifier', 'edit', entry)}
+                                                                    className="text-blue-600 hover:text-blue-800 text-lg"
+                                                                >
+                                                                    ✏️
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => deleteAnonymizationEntry(entry.id)}
+                                                                    className="text-red-600 hover:text-red-800 text-lg"
+                                                                >
+                                                                    🗑️
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            
+                            {/* Anonymization Modal */}
+                            {showAnonModal && (
+                                <div style={{
+                                    position: 'fixed',
+                                    top: 0,
+                                    left: 0,
+                                    right: 0,
+                                    bottom: 0,
+                                    background: 'rgba(0,0,0,0.5)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    zIndex: 9999
+                                }}>
+                                    <div style={{
+                                        background: 'white',
+                                        padding: '24px',
+                                        borderRadius: '12px',
+                                        maxWidth: '500px',
+                                        width: '90%'
+                                    }}>
+                                        <h3 className="text-xl font-bold mb-4 text-gray-800">
+                                            {anonModalMode === 'add' ? 'Lägg till' : 'Redigera'} {
+                                                anonModalType === 'person' ? 'Person' :
+                                                anonModalType === 'organization' ? 'Organisation' :
+                                                anonModalType === 'location' ? 'Plats' : 'Identifierare'
+                                            }
+                                        </h3>
+                                        
+                                        <div className="mb-4">
+                                            <label className="block text-sm font-bold text-gray-700 mb-2">
+                                                Värde att anonymisera:
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={anonOriginalValue}
+                                                onChange={(e) => setAnonOriginalValue(e.target.value)}
+                                                placeholder={
+                                                    anonModalType === 'person' ? 't.ex. Anna' :
+                                                    anonModalType === 'organization' ? 't.ex. Volvo' :
+                                                    anonModalType === 'location' ? 't.ex. Stockholm' :
+                                                    't.ex. 123456-7890'
+                                                }
+                                                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:outline-none"
+                                                autoFocus
+                                            />
+                                            <p className="text-xs text-gray-500 mt-2">
+                                                Koden genereras automatiskt (t.ex. PERSON_1, ORG_1)
+                                            </p>
+                                        </div>
+                                        
+                                        <div className="flex gap-3">
+                                            <button
+                                                onClick={saveAnonymizationEntry}
+                                                className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-all"
+                                            >
+                                                {anonModalMode === 'add' ? 'Lägg till' : 'Uppdatera'}
+                                            </button>
+                                            <button
+                                                onClick={closeAnonModal}
+                                                className="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-medium transition-all"
+                                            >
+                                                Avbryt
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            {/* Project Memory Expandable Section */}
+                            <div className="mt-12 pt-8 border-t-2 border-gray-200">
+                                <button
+                                    onClick={() => setShowProjectMemory(!showProjectMemory)}
+                                    className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-blue-50 hover:from-purple-100 hover:to-blue-100 rounded-xl border-2 border-purple-200 transition-all"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-2xl">📚</span>
+                                        <div className="text-left">
+                                            <h2 className="text-xl font-bold text-gray-800">
+                                                Projektminne
+                                            </h2>
+                                            <p className="text-sm text-gray-600">
+                                                {projectMemory.length > 0 
+                                                    ? `${projectMemory.length} entries sparade`
+                                                    : 'Spara stakeholders, system och mål för konsistens'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <span className="text-2xl text-gray-600">
+                                        {showProjectMemory ? '▲' : '▼'}
+                                    </span>
+                                </button>
+                                
+                                {showProjectMemory && (
+                                    <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 animate-fadeIn">
+                                        {/* Stakeholders */}
+                                        <div className="bg-white p-6 rounded-xl border-2 border-gray-200 shadow-sm">
+                                            <div className="flex justify-between items-center mb-4">
+                                                <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                                    👥 Stakeholders
+                                                    <span className="text-sm font-normal text-gray-500">
+                                                        ({getMemoriesByType('stakeholder').length})
+                                                    </span>
+                                                </h3>
+                                                <button
+                                                    onClick={() => openMemoryModal('stakeholder', 'add')}
+                                                    className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-all"
+                                                >
+                                                    + Lägg till
+                                                </button>
+                                            </div>
+                                            <div className="space-y-2 max-h-64 overflow-y-auto">
+                                                {getMemoriesByType('stakeholder').length === 0 ? (
+                                                    <p className="text-gray-400 text-sm italic">Inga stakeholders tillagda</p>
+                                                ) : (
+                                                    getMemoriesByType('stakeholder').map(memory => (
+                                                        <div key={memory.id} className="flex justify-between items-start p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all">
+                                                            <div className="flex-1">
+                                                                <div className="font-semibold text-gray-800">{memory.key}</div>
+                                                                <div className="text-sm text-gray-600">{memory.value}</div>
+                                                            </div>
+                                                            <div className="flex gap-2 ml-2">
+                                                                <button
+                                                                    onClick={() => openMemoryModal('stakeholder', 'edit', memory)}
+                                                                    className="text-blue-600 hover:text-blue-800 text-lg"
+                                                                    title="Redigera"
+                                                                >
+                                                                    ✏️
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => deleteMemory(memory.id)}
+                                                                    className="text-red-600 hover:text-red-800 text-lg"
+                                                                    title="Radera"
+                                                                >
+                                                                    🗑️
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Systems */}
+                                        <div className="bg-white p-6 rounded-xl border-2 border-gray-200 shadow-sm">
+                                            <div className="flex justify-between items-center mb-4">
+                                                <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                                    🖥️ System/Komponenter
+                                                    <span className="text-sm font-normal text-gray-500">
+                                                        ({getMemoriesByType('system').length})
+                                                    </span>
+                                                </h3>
+                                                <button
+                                                    onClick={() => openMemoryModal('system', 'add')}
+                                                    className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-all"
+                                                >
+                                                    + Lägg till
+                                                </button>
+                                            </div>
+                                            <div className="space-y-2 max-h-64 overflow-y-auto">
+                                                {getMemoriesByType('system').length === 0 ? (
+                                                    <p className="text-gray-400 text-sm italic">Inga system tillagda</p>
+                                                ) : (
+                                                    getMemoriesByType('system').map(memory => (
+                                                        <div key={memory.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all">
+                                                            <div className="flex-1 text-gray-800">{memory.value}</div>
+                                                            <div className="flex gap-2 ml-2">
+                                                                <button
+                                                                    onClick={() => openMemoryModal('system', 'edit', memory)}
+                                                                    className="text-blue-600 hover:text-blue-800 text-lg"
+                                                                    title="Redigera"
+                                                                >
+                                                                    ✏️
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => deleteMemory(memory.id)}
+                                                                    className="text-red-600 hover:text-red-800 text-lg"
+                                                                    title="Radera"
+                                                                >
+                                                                    🗑️
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Goals */}
+                                        <div className="bg-white p-6 rounded-xl border-2 border-gray-200 shadow-sm">
+                                            <div className="flex justify-between items-center mb-4">
+                                                <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                                    🎯 Projektmål
+                                                    <span className="text-sm font-normal text-gray-500">
+                                                        ({getMemoriesByType('goal').length})
+                                                    </span>
+                                                </h3>
+                                                <button
+                                                    onClick={() => openMemoryModal('goal', 'add')}
+                                                    className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-all"
+                                                >
+                                                    + Lägg till
+                                                </button>
+                                            </div>
+                                            <div className="space-y-2 max-h-64 overflow-y-auto">
+                                                {getMemoriesByType('goal').length === 0 ? (
+                                                    <p className="text-gray-400 text-sm italic">Inga mål tillagda</p>
+                                                ) : (
+                                                    getMemoriesByType('goal').map(memory => (
+                                                        <div key={memory.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all">
+                                                            <div className="flex-1 text-gray-800">{memory.value}</div>
+                                                            <div className="flex gap-2 ml-2">
+                                                                <button
+                                                                    onClick={() => openMemoryModal('goal', 'edit', memory)}
+                                                                    className="text-blue-600 hover:text-blue-800 text-lg"
+                                                                    title="Redigera"
+                                                                >
+                                                                    ✏️
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => deleteMemory(memory.id)}
+                                                                    className="text-red-600 hover:text-red-800 text-lg"
+                                                                    title="Radera"
+                                                                >
+                                                                    🗑️
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Decisions */}
+                                        <div className="bg-white p-6 rounded-xl border-2 border-gray-200 shadow-sm">
+                                            <div className="flex justify-between items-center mb-4">
+                                                <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                                    ✅ Viktiga Beslut
+                                                    <span className="text-sm font-normal text-gray-500">
+                                                        ({getMemoriesByType('decision').length})
+                                                    </span>
+                                                </h3>
+                                                <button
+                                                    onClick={() => openMemoryModal('decision', 'add')}
+                                                    className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-all"
+                                                >
+                                                    + Lägg till
+                                                </button>
+                                            </div>
+                                            <div className="space-y-2 max-h-64 overflow-y-auto">
+                                                {getMemoriesByType('decision').length === 0 ? (
+                                                    <p className="text-gray-400 text-sm italic">Inga beslut tillagda</p>
+                                                ) : (
+                                                    getMemoriesByType('decision').map(memory => (
+                                                        <div key={memory.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all">
+                                                            <div className="flex-1 text-gray-800">{memory.value}</div>
+                                                            <div className="flex gap-2 ml-2">
+                                                                <button
+                                                                    onClick={() => openMemoryModal('decision', 'edit', memory)}
+                                                                    className="text-blue-600 hover:text-blue-800 text-lg"
+                                                                    title="Redigera"
+                                                                >
+                                                                    ✏️
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => deleteMemory(memory.id)}
+                                                                    className="text-red-600 hover:text-red-800 text-lg"
+                                                                    title="Radera"
+                                                                >
+                                                                    🗑️
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            
+                            {/* Project Memory Modal */}
+                            {showMemoryModal && (
+                                <div style={{
+                                    position: 'fixed',
+                                    top: 0,
+                                    left: 0,
+                                    right: 0,
+                                    bottom: 0,
+                                    background: 'rgba(0,0,0,0.5)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    zIndex: 9999
+                                }}>
+                                    <div style={{
+                                        background: 'white',
+                                        padding: '24px',
+                                        borderRadius: '12px',
+                                        maxWidth: '500px',
+                                        width: '90%',
+                                        maxHeight: '90vh',
+                                        overflow: 'auto'
+                                    }}>
+                                        <h3 className="text-xl font-bold mb-4 text-gray-800">
+                                            {memoryModalMode === 'add' ? 'Lägg till' : 'Redigera'} {
+                                                memoryModalType === 'stakeholder' ? 'Stakeholder' :
+                                                memoryModalType === 'system' ? 'System' :
+                                                memoryModalType === 'goal' ? 'Mål' : 'Beslut'
+                                            }
+                                        </h3>
+                                        
+                                        {memoryModalType === 'stakeholder' && (
+                                            <div className="mb-4">
+                                                <label className="block text-sm font-bold text-gray-700 mb-2">Namn:</label>
+                                                <input
+                                                    type="text"
+                                                    value={memoryKey}
+                                                    onChange={(e) => setMemoryKey(e.target.value)}
+                                                    placeholder="t.ex. Anna"
+                                                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
+                                                    autoFocus
+                                                />
+                                            </div>
+                                        )}
+                                        
+                                        <div className="mb-4">
+                                            <label className="block text-sm font-bold text-gray-700 mb-2">
+                                                {memoryModalType === 'stakeholder' ? 'Roll/Beskrivning:' : 'Beskrivning:'}
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={memoryValue}
+                                                onChange={(e) => setMemoryValue(e.target.value)}
+                                                placeholder={
+                                                    memoryModalType === 'stakeholder' ? 't.ex. API Lead Norge' :
+                                                    memoryModalType === 'system' ? 't.ex. Payment Gateway (Stripe)' :
+                                                    memoryModalType === 'goal' ? 't.ex. Go-live 15 januari 2025' :
+                                                    't.ex. 2025-01-15: Vi kör Stripe'
+                                                }
+                                                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
+                                                autoFocus={memoryModalType !== 'stakeholder'}
+                                            />
+                                        </div>
+                                        
+                                        <div className="flex gap-3">
+                                            <button
+                                                onClick={saveMemory}
+                                                className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-all"
+                                            >
+                                                {memoryModalMode === 'add' ? 'Lägg till' : 'Uppdatera'}
+                                            </button>
+                                            <button
+                                                onClick={closeMemoryModal}
+                                                className="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-medium transition-all"
+                                            >
+                                                Avbryt
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Result Display */}
+                            {result && (
+                                <ResultDisplay result={result} />
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // ============================================
+        // RESULT DISPLAY COMPONENT
+        // ============================================
+        function ResultDisplay({ result }) {
+            const [activeTab, setActiveTab] = useState('preview');
+
+            const copyToClipboard = () => {
+                navigator.clipboard.writeText(result);
+                alert('✅ Kopierat till urklipp!');
+            };
+
+            const downloadAsFile = () => {
+                // Konvertera markdown till HTML med styling
+                const htmlContent = `<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PMO Dokument</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 20px;
+            line-height: 1.6;
+            color: #2d3748;
+            background: #f7fafc;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1a202c;
+            margin-top: 24px;
+            margin-bottom: 16px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 8px;
+        }
+        h2 {
+            font-size: 22px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-top: 20px;
+            margin-bottom: 12px;
+        }
+        h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #4a5568;
+            margin-top: 16px;
+            margin-bottom: 8px;
+        }
+        p {
+            margin: 12px 0;
+        }
+        ul {
+            margin: 16px 0;
+            padding-left: 0;
+            list-style: none;
+        }
+        ul li {
+            margin: 8px 0;
+            padding-left: 24px;
+            position: relative;
+        }
+        ul li:before {
+            content: "•";
+            position: absolute;
+            left: 8px;
+            color: #667eea;
+            font-weight: bold;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        table th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        table td {
+            padding: 12px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 14px;
+        }
+        table tr:hover {
+            background: #f7fafc;
+        }
+        strong {
+            font-weight: 600;
+            color: #2d3748;
+        }
+        @media print {
+            body { background: white; margin: 0; }
+            .container { box-shadow: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        ${markdownToHtml(result)}
+    </div>
+</body>
+</html>`;
+                
+                const blob = new Blob([htmlContent], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `pmo-document-${new Date().toISOString().split('T')[0]}.html`;
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+
+            const markdownToHtml = (markdown) => {
+                let html = markdown;
+                
+                // Remove version headers
+                html = html.replace(/^(?:OneNote[- ]?version|OneNote Version|ONENOTE VERSION)\s*:?\s*\n/gmi, '');
+                html = html.replace(/^(?:Word[- ]?version|Word Version|WORD VERSION)\s*:?\s*\n/gmi, '');
+                html = html.replace(/\n\s*(?:OneNote[- ]?version|OneNote Version|ONENOTE VERSION)\s*:?\s*\n/gmi, '\n');
+                html = html.replace(/\n\s*(?:Word[- ]?version|Word Version|WORD VERSION)\s*:?\s*\n/gmi, '\n');
+                
+                // Convert tables
+                const tablePattern = /^(\|[^\n]+\|\n)(\|[\s\-:|]+\|\n)((?:\|[^\n]+\|\n?)+)/gm;
+                
+                html = html.replace(tablePattern, (match, headerRow, separatorRow, bodyRows) => {
+                    let tableHtml = '<table>';
+                    
+                    const headers = headerRow.split('|')
+                        .map(cell => cell.trim())
+                        .filter(cell => cell.length > 0);
+                    
+                    tableHtml += '<thead><tr>';
+                    headers.forEach(header => {
+                        tableHtml += `<th>${header}</th>`;
+                    });
+                    tableHtml += '</tr></thead>';
+                    
+                    tableHtml += '<tbody>';
+                    const rows = bodyRows.split('\n').filter(row => row.trim().length > 0);
+                    rows.forEach(row => {
+                        const cells = row.split('|')
+                            .map(cell => cell.trim())
+                            .filter((cell, index, arr) => index > 0 && index < arr.length - 1);
+                        
+                        if (cells.length > 0) {
+                            tableHtml += '<tr>';
+                            cells.forEach(cell => {
+                                tableHtml += `<td>${cell}</td>`;
+                            });
+                            tableHtml += '</tr>';
+                        }
+                    });
+                    tableHtml += '</tbody>';
+                    
+                    tableHtml += '</table>';
+                    return tableHtml;
+                });
+                
+                // Convert headers
+                html = html.replace(/^### (.*$)/gm, '<h3>$1</h3>');
+                html = html.replace(/^## (.*$)/gm, '<h2>$1</h2>');
+                html = html.replace(/^# (.*$)/gm, '<h1>$1</h1>');
+                
+                // Convert bold
+                html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                
+                // Convert bullet lists (FIXED - proper grouping)
+                // First, mark bullets
+                html = html.replace(/^[•\*\-] (.+)$/gm, '___BULLET___$1');
+                
+                // Group consecutive bullets into lists
+                html = html.replace(/(___BULLET___[^\n]+\n?)+/g, (match) => {
+                    const items = match.split('\n')
+                        .filter(line => line.trim())
+                        .map(line => line.replace('___BULLET___', '').trim())
+                        .map(item => `<li>${item}</li>`)
+                        .join('\n');
+                    return `<ul>${items}</ul>`;
+                });
+                
+                // Convert line breaks to paragraphs
+                html = html.replace(/\n\n+/g, '</p><p>');
+                
+                // Wrap in paragraphs (but not tables/headers/lists)
+                html = html.split('\n').map(line => {
+                    if (line.startsWith('<') || line.trim() === '') return line;
+                    return `<p>${line}</p>`;
+                }).join('\n');
+                
+                return html;
+            };
+
+            return (
+                <div className="mt-8 p-4 md:p-6 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-300 rounded-2xl fade-in">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+                        <h3 className="text-lg md:text-xl font-bold text-gray-800 flex items-center gap-2">
+                            <span>✅</span> Resultat
+                        </h3>
+                        <div className="flex gap-2 w-full sm:w-auto">
+                            <button
+                                onClick={copyToClipboard}
+                                className="flex-1 sm:flex-none px-3 md:px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-all text-xs md:text-sm"
+                            >
+                                <span className="hidden sm:inline">📋 Kopiera</span>
+                                <span className="sm:hidden">📋</span>
+                            </button>
+                            <button
+                                onClick={downloadAsFile}
+                                className="flex-1 sm:flex-none px-3 md:px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium transition-all text-xs md:text-sm"
+                            >
+                                <span className="hidden sm:inline">💾 Ladda ner</span>
+                                <span className="sm:hidden">💾</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Tabs */}
+                    <div className="tab-container flex gap-1 mb-4 overflow-x-auto">
+                        <button
+                            onClick={() => setActiveTab('preview')}
+                            className={`px-3 md:px-6 py-2 md:py-3 rounded-t-lg transition-all whitespace-nowrap text-sm md:text-base ${
+                                activeTab === 'preview' ? 'tab-active' : 'tab-inactive'
+                            }`}
+                        >
+                            <span className="md:hidden">👁️</span>
+                            <span className="hidden md:inline">👁️ Förhandsvisning</span>
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('raw')}
+                            className={`px-3 md:px-6 py-2 md:py-3 rounded-t-lg transition-all whitespace-nowrap text-sm md:text-base ${
+                                activeTab === 'raw' ? 'tab-active' : 'tab-inactive'
+                            }`}
+                        >
+                            <span className="md:hidden">📝</span>
+                            <span className="hidden md:inline">📝 Markdown</span>
+                        </button>
+                    </div>
+
+                    {/* Content */}
+                    {activeTab === 'preview' ? (
+                        <div 
+                            className="markdown-result document-preview bg-white p-8 rounded-xl border border-gray-200 overflow-auto max-h-96"
+                            dangerouslySetInnerHTML={{ __html: markdownToHtml(result) }}
+                        />
+                    ) : (
+                        <pre className="bg-white p-6 rounded-xl border border-gray-200 overflow-auto max-h-96 text-sm font-mono whitespace-pre-wrap">
+                            {result}
+                        </pre>
+                    )}
+                </div>
+            );
+        }
+
+        // ============================================
+        // RENDER APP
+        // ============================================
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
