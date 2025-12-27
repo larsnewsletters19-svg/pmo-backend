@@ -1,0 +1,39 @@
+name: Keep Railway & Supabase Alive
+
+on:
+  schedule:
+    # Kör varje dag kl 08:00 UTC (09:00 svensk tid)
+    - cron: '0 8 * * *'
+  workflow_dispatch: # Tillåt manuell trigger
+
+jobs:
+  ping-railway:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Ping Railway Backend
+        run: |
+          echo "🏓 Pinging Railway backend (which pings Supabase)..."
+          
+          # Ping Railway backend /health endpoint
+          # Detta håller både Railway OCH Supabase aktiva!
+          response=$(curl -s -w "\n%{http_code}" https://web-production-5822.up.railway.app/health)
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
+          
+          echo "📡 Response code: $http_code"
+          echo "📊 Response body: $body"
+          
+          if [ "$http_code" = "200" ]; then
+            echo "✅ Railway backend is alive!"
+            echo "✅ Supabase pinged successfully!"
+          else
+            echo "❌ Failed to ping Railway backend"
+            exit 1
+          fi
+          
+      - name: Log result
+        run: |
+          echo "📅 Last ping: $(date)"
+          echo "🎯 Railway backend kept alive"
+          echo "🎯 Supabase kept alive via backend"
